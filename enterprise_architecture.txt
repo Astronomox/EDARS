@@ -1,0 +1,132 @@
+Enterprise Data Analytics
+& Reporting System
+Architecture & Technical Design Overview
+
+Version 1.0  |  Confidential  |  Internal Use Only
+
+
+1. Executive Summary
+This document describes the architecture, components, and security model for an internal enterprise data analytics and reporting platform. The system is designed to serve organisations with 500 to 5,000 concurrent users, delivering real-time reporting, department-level data isolation, and a robust security posture across every layer of the stack.
+
+The platform is built on three core principles:
+Security by design — every component enforces authentication, authorisation, and audit logging
+Scalability — the database and service layers are partitioned and independently scalable
+Separation of concerns — data processing, API serving, and storage are handled by dedicated services
+
+2. System Architecture
+The system follows a microservices architecture with a strict network topology. All external traffic flows through a single hardened entry point, and internal services communicate exclusively over an isolated private network.
+
+2.1 High-Level Traffic Flow
+Requests from end users follow this path through the system:
+
+Request Flow
+1.  User browser / client sends HTTPS request
+2.  Nginx (Reverse Proxy) — terminates TLS, enforces HTTPS, forwards to API layer
+3.  API Gateway — authenticates the JWT token, checks role permissions, rate-limits the request
+4.  PostgreSQL Database — stores and retrieves user data, reports, and audit records
+5.  Analytics Service — processes complex data queries and generates report output (internal only)
+6.  Response returned to client over encrypted connection
+
+2.2 Network Isolation
+The analytics service and database are never exposed to the public internet. Only the API gateway and Nginx proxy sit on the external network. All inter-service communication occurs on a private internal network, invisible to outside traffic.
+
+3. Service Components
+
+Service	Technology	Exposure	Responsibility
+Nginx Proxy	Nginx	External (80/443)	TLS termination, HTTPS enforcement, reverse proxy
+API Gateway	Node.js + Express	External (port 3000)	Authentication, authorisation, routing, rate limiting
+Analytics Engine	Python + FastAPI	Internal only	Report generation, data aggregation, statistical processing
+Primary Database	PostgreSQL 16	Internal only	Persistent data storage, row-level security, audit logging
+Cache Layer	Redis	Internal only	Session caching, rate limit state, query result caching
+
+3.1 API Gateway
+The API gateway is the sole externally accessible service in the system. It is responsible for:
+Validating JWT tokens on every authenticated request
+Enforcing role-based access control before any data is returned
+Applying rate limiting (100 requests per 15 minutes per IP address)
+Injecting security headers on all HTTP responses via Helmet.js
+Routing analytics requests to the internal Python service
+Writing an audit log entry for every significant user action
+
+3.2 Analytics Engine
+The analytics engine is a Python service that handles computationally intensive report generation. It is not reachable from the internet — the API gateway must present a valid internal service token to call it. The engine supports three core report types out of the box:
+Sales Summary — revenue aggregation and department-level breakdown over a configurable date range
+User Activity — daily active users, action counts, and peak usage analysis
+Department KPIs — headcount, report volume, and processing time metrics per department
+Additional report types can be added without changes to the API layer.
+
+3.3 Database Layer
+PostgreSQL serves as the single source of truth for all persistent data. The schema is designed for large-scale enterprise use with the following characteristics:
+Table partitioning by quarter — the reports, transactions, and audit log tables are partitioned to maintain query performance as data volume grows
+Row-Level Security (RLS) — users can only query data belonging to their own department(s), enforced at the database engine level
+Immutable audit log — the audit table is append-only and records every user action with a timestamp, IP address, and metadata payload
+UUID primary identifiers — all entities expose a UUID externally, never the internal integer primary key
+
+4. Security Architecture
+Security is applied in layers across every component. No single point of failure can expose user data or compromise the system.
+
+4.1 Authentication
+All API endpoints except the login route require a valid JSON Web Token (JWT). Tokens are signed with a 256-bit secret key and expire after 8 hours. The login endpoint verifies passwords against bcrypt hashes stored in the database (cost factor 12), and never returns the hash or any sensitive credential to the client.
+
+4.2 Authorisation — Role-Based Access Control
+Every user is assigned one of four roles. Each role controls which API endpoints are accessible and which data the user can see:
+
+Role	Permissions
+Viewer	Can view reports and dashboard metrics for their department only
+Analyst	Can view reports and trigger new report generation
+Manager	Can view all reports across assigned departments
+Admin	Full access to all endpoints including the audit log and user management
+
+4.3 Data Isolation
+Row-Level Security policies are defined directly in the database. When any query runs, PostgreSQL automatically filters results to include only rows the current user is permitted to see, based on their department assignments. This means even a misconfigured application query cannot leak cross-department data — the database engine enforces the isolation before any rows are returned.
+
+4.4 Transport Security
+All external communication is encrypted using TLS 1.3, terminated at the Nginx reverse proxy. Internal service-to-service communication occurs on a private Docker network with no external routing. The analytics service additionally requires a shared secret token on every inbound request to prevent unauthorised callers.
+
+4.5 Rate Limiting and Abuse Prevention
+The API gateway enforces a rate limit of 100 requests per 15-minute window per IP address. Requests exceeding this threshold receive a 429 response. Request body size is capped at 10KB to prevent payload-based denial-of-service attacks. HTTP security headers (including Content Security Policy, X-Frame-Options, and X-Content-Type-Options) are applied to all responses.
+
+4.6 Audit Logging
+Every create, update, and sensitive read action is recorded in an immutable audit log table. Each record captures the user ID, action type, affected resource, request metadata, and IP address. Rows are never updated or deleted. Admins can query the full audit trail via the API. The log is partitioned by quarter to maintain performance at scale.
+
+5. Scalability & Infrastructure
+The system is designed to scale to 5,000 concurrent users without architectural changes. The following design decisions support this:
+
+Feature	Approach
+Database connection pooling	Up to 20 simultaneous database connections managed by the connection pool
+Table partitioning	Reports, transactions, and audit log are partitioned by quarter, keeping indexes small and queries fast
+Stateless API layer	The API gateway holds no session state — JWT tokens are self-contained, enabling horizontal scaling
+Independent service scaling	The analytics engine can be scaled independently of the API layer during peak report generation periods
+Redis caching	Frequently accessed queries and rate limit counters are cached in Redis, reducing database load
+Infrastructure as code	The entire stack is defined declaratively and can be reproduced or scaled on any container orchestration platform
+
+6. Core Data Model
+The database schema organises data across five primary tables:
+
+Table	Purpose
+users	Stores user accounts, bcrypt password hashes, roles, department assignments, and login timestamps
+departments	Defines organisational units; users and reports are scoped to departments
+reports	Records report metadata including type, status, creator, and output reference; partitioned by quarter
+transactions	Sample business data used by the analytics engine for sales and revenue reports; partitioned by quarter
+audit_log	Immutable record of all user actions with timestamps, IP addresses, and JSON metadata; partitioned by quarter
+
+7. Deployment
+The entire stack is containerised and orchestrated using Docker Compose. All five services start in dependency order, with health checks ensuring the database is ready before dependent services initialise. Environment-specific configuration (database credentials, JWT secret, internal service token) is supplied via environment variables and never hard-coded.
+
+For production deployment, the following additional steps are recommended:
+Replace the self-signed TLS certificate with a certificate issued by a trusted certificate authority
+Rotate all secrets (JWT secret, service token, database passwords) from the defaults before go-live
+Enable SSL/TLS on the PostgreSQL connection string
+Configure automated database backups with point-in-time recovery
+Deploy behind a cloud load balancer for high availability
+
+8. Summary
+This platform provides a secure, scalable foundation for enterprise data analytics and reporting. The combination of JWT authentication, role-based access control, database-level row security, network isolation, and a comprehensive audit trail ensures that sensitive business data is accessible only to authorised users, and that every access is recorded.
+
+The microservices architecture means individual components — the analytics engine, API layer, and database — can be scaled, updated, or replaced independently as organisational requirements evolve.
+
+Key Design Principles
+Zero Trust — every request is verified regardless of network origin
+Least Privilege — users access only the data their role and department permit
+Defence in Depth — security is enforced at the network, API, and database layers simultaneously
+Immutable Audit Trail — every action is logged and cannot be altered or deleted

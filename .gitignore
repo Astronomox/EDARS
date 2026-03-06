@@ -1,0 +1,15 @@
+node_modules/
+__pycache__/
+*.pyc
+.env
+*.pem
+*.key
+*.crt
+proxy/certs/
+pg_data/
+redis_data/
+prometheus_data/
+dist/
+.DS_Store
+Thumbs.db
+*.log

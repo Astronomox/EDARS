@@ -1,0 +1,42 @@
+# ═══════════════════════════════════════════════════════════════
+# Prometheus Configuration — EDARS Monitoring
+# ═══════════════════════════════════════════════════════════════
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  scrape_timeout: 10s
+
+rule_files:
+  - /etc/prometheus/alert_rules.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
+
+scrape_configs:
+  # ── Gateway Metrics ──
+  - job_name: 'edars-gateway'
+    scrape_interval: 10s
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['gateway:3000']
+        labels:
+          service: 'gateway'
+          environment: 'production'
+
+  # ── Prometheus Self-Monitoring ──
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # ── Redis Metrics (if redis-exporter is added) ──
+  # - job_name: 'redis'
+  #   static_configs:
+  #     - targets: ['redis-exporter:9121']
+
+  # ── PostgreSQL Metrics (if postgres-exporter is added) ──
+  # - job_name: 'postgresql'
+  #   static_configs:
+  #     - targets: ['postgres-exporter:9187']

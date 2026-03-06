@@ -1,0 +1,57 @@
+# EDARS Enhancement Plan — Enterprise-Grade Upgrade
+
+## Overview
+Comprehensive enhancement of the EDARS platform with production-grade infrastructure additions.
+
+## Enhancements
+
+### 1. Gateway — Threat Intelligence Middleware (`threatIntel.js`)
+- Automated IP reputation scoring
+- Geo-fencing with configurable country block/allow lists
+- Request fingerprinting (TLS fingerprint, header ordering)
+- Honeypot trap endpoints that flag bad actors
+- Auto-escalating ban system (warn → throttle → temporary ban → permanent ban)
+
+### 2. Gateway — Cryptographic Request Signing (`hmacVerify.js`)
+- HMAC-SHA256 request signing for all API calls
+- Timestamp-based replay attack prevention (5-minute window)
+- Nonce tracking via Redis to prevent duplicate requests
+- Constant-time comparison to prevent timing attacks
+
+### 3. Gateway — Enhanced Observability (`metrics.js`)
+- Prometheus-compatible metrics endpoint
+- Request latency histograms (p50, p95, p99)
+- Error rate counters by route
+- Active connection gauge
+- Circuit breaker state metrics
+- Memory and event loop utilisation
+
+### 4. Analytics — Predictive Intelligence (`forecasting.py`)
+- Time-series forecasting using linear regression + seasonal decomposition
+- Revenue prediction per department (30/60/90 day)
+- Anomaly severity scoring with confidence intervals
+- Pattern detection for spending trends
+
+### 5. Analytics — Data Pipeline Engine (`pipeline.py`)
+- ETL pipeline framework for scheduled data processing
+- Aggregation jobs with checkpointing
+- Incremental processing with watermark tracking
+- Dead-letter queue for failed pipeline stages
+
+### 6. Database — Security Hardening (`005_security_hardening.sql`)
+- Column-level encryption functions using pgcrypto
+- Data masking views for PII fields
+- Failed login tracking table with automatic IP blocking triggers
+- Session management table with device fingerprinting
+- Cryptographic hash chain for audit log integrity verification
+
+### 7. Infrastructure — Docker Compose Enhancements
+- Add Prometheus + Alertmanager containers
+- Resource limit tuning
+- Healthcheck improvements
+
+### 8. Environment/Config Enhancements
+- New security-related env vars
+- HMAC signing keys
+- Geo-fence config
+- Metrics toggle

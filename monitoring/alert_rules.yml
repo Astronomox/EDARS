@@ -1,0 +1,100 @@
+# ═══════════════════════════════════════════════════════════════
+# Prometheus Alert Rules — EDARS
+# ═══════════════════════════════════════════════════════════════
+
+groups:
+  - name: edars_gateway
+    interval: 30s
+    rules:
+      # ── High Error Rate ──
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(edars_http_errors_total[5m])) /
+          sum(rate(edars_http_requests_total[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          service: gateway
+        annotations:
+          summary: 'High HTTP error rate (>5%)'
+          description: 'Error rate is {{ $value | humanizePercentage }} over the last 5 minutes'
+
+      # ── Gateway Down ──
+      - alert: GatewayDown
+        expr: up{job="edars-gateway"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: gateway
+        annotations:
+          summary: 'EDARS Gateway is DOWN'
+          description: 'The gateway has been unreachable for over 1 minute'
+
+      # ── High Latency ──
+      - alert: HighLatency
+        expr: |
+          histogram_quantile(0.95,
+            rate(edars_http_request_duration_ms_bucket[5m])
+          ) > 2000
+        for: 5m
+        labels:
+          severity: warning
+          service: gateway
+        annotations:
+          summary: 'High P95 latency (>2s)'
+          description: 'P95 request latency is {{ $value }}ms'
+
+      # ── Circuit Breaker Open ──
+      - alert: CircuitBreakerOpen
+        expr: edars_circuit_breaker_state > 0
+        for: 2m
+        labels:
+          severity: critical
+          service: gateway
+        annotations:
+          summary: 'Circuit breaker is OPEN'
+          description: 'Circuit breaker for service {{ $labels.service }} has been open for >2 minutes'
+
+      # ── Threat Intelligence Active ──
+      - alert: HighThreatBlocks
+        expr: rate(edars_threat_blocks_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          service: security
+        annotations:
+          summary: 'High rate of threat blocks'
+          description: 'Threat intel is blocking >10 requests/5min — possible attack in progress'
+
+      # ── Event Loop Lag ──
+      - alert: EventLoopLag
+        expr: edars_event_loop_lag_ms > 500
+        for: 3m
+        labels:
+          severity: warning
+          service: gateway
+        annotations:
+          summary: 'Node.js event loop lag >500ms'
+          description: 'Event loop lag is {{ $value }}ms — gateway may be overloaded'
+
+      # ── Memory Pressure ──
+      - alert: HighMemoryUsage
+        expr: edars_memory_rss_bytes > 450 * 1024 * 1024
+        for: 5m
+        labels:
+          severity: warning
+          service: gateway
+        annotations:
+          summary: 'High memory usage (>450MB RSS)'
+          description: 'Gateway RSS is {{ $value | humanize1024 }}B — approaching 512MB limit'
+
+      # ── DB Pool Exhaustion ──
+      - alert: DBPoolExhaustion
+        expr: edars_db_pool_waiting > 5
+        for: 2m
+        labels:
+          severity: critical
+          service: database
+        annotations:
+          summary: 'Database connection pool congestion'
+          description: '{{ $value }} requests waiting for DB connections'

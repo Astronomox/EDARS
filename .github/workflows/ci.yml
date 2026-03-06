@@ -1,0 +1,234 @@
+name: EDARS CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop, 'feature/**']
+  pull_request:
+    branches: [main, develop]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository_owner }}/edars
+
+permissions:
+  contents: read
+  packages: write
+
+# ═══════════════════════════════════════════════════════════════
+# PIPELINE: Lint → Test → Build → Deploy
+# ═══════════════════════════════════════════════════════════════
+jobs:
+  # ─── 1. LINT — Fail fast ───────────────────────────────────
+  lint-gateway:
+    name: Lint — Gateway (Node.js)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: gateway/package-lock.json
+
+      - name: Install dependencies
+        working-directory: gateway
+        run: npm ci
+
+      - name: ESLint
+        working-directory: gateway
+        run: npx eslint src/ --ext .js --max-warnings=0
+
+      - name: Prettier check
+        working-directory: gateway
+        run: npx prettier --check "src/**/*.js"
+
+  lint-analytics:
+    name: Lint — Analytics (Python)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: analytics/requirements.txt
+
+      - name: Install dependencies
+        working-directory: analytics
+        run: |
+          pip install -r requirements.txt
+          pip install ruff mypy
+
+      - name: Ruff linter
+        working-directory: analytics
+        run: ruff check app/ tests/ --output-format=github
+
+      - name: Ruff formatter
+        working-directory: analytics
+        run: ruff format --check app/ tests/
+
+      - name: mypy type checking
+        working-directory: analytics
+        run: mypy app/ --ignore-missing-imports --no-error-summary || true
+
+  # ─── 2. TEST ───────────────────────────────────────────────
+  test-gateway:
+    name: Test — Gateway (Jest)
+    needs: lint-gateway
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: gateway/package-lock.json
+
+      - name: Install dependencies
+        working-directory: gateway
+        run: npm ci
+
+      - name: Run unit tests
+        working-directory: gateway
+        run: npx jest --ci --coverage --forceExit
+        env:
+          JWT_SECRET: test-ci-secret-key
+          HMAC_ENABLED: 'false'
+          ADMIN_IP_WHITELIST: '127.0.0.1,::1,10.0.0.0/8'
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gateway-coverage
+          path: gateway/coverage/
+
+  test-analytics:
+    name: Test — Analytics (Pytest)
+    needs: lint-analytics
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: analytics/requirements.txt
+
+      - name: Install dependencies
+        working-directory: analytics
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-cov
+
+      - name: Run unit tests
+        working-directory: analytics
+        run: pytest tests/ -v --tb=short --cov=app --cov-report=xml
+        env:
+          SERVICE_TOKEN: CHANGE_ME
+          DB_HOST: localhost
+          REDIS_HOST: localhost
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: analytics-coverage
+          path: analytics/coverage.xml
+
+  # ─── 3. BUILD & PUSH DOCKER IMAGES ────────────────────────
+  build:
+    name: Build Docker Images
+    needs: [test-gateway, test-analytics]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    strategy:
+      matrix:
+        service: [gateway, analytics, proxy]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-${{ matrix.service }}
+          tags: |
+            type=sha,prefix=
+            type=ref,event=branch
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: ./${{ matrix.service }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ─── 4. DEPLOY TO STAGING (auto on main merge) ────────────
+  deploy-staging:
+    name: Deploy — Staging
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to staging via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: ${{ secrets.STAGING_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          script: |
+            cd /opt/edars
+            git pull origin main
+            docker compose pull
+            docker compose up -d --remove-orphans
+            docker compose exec -T gateway node -e "console.log('Gateway healthy')"
+            echo "Staging deployment complete: $(date)"
+
+  # ─── 5. DEPLOY TO PRODUCTION (manual approval) ─────────────
+  deploy-production:
+    name: Deploy — Production
+    needs: deploy-staging
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      name: production
+      url: https://edars.example.com
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to production via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PRODUCTION_HOST }}
+          username: ${{ secrets.PRODUCTION_USER }}
+          key: ${{ secrets.PRODUCTION_SSH_KEY }}
+          script: |
+            cd /opt/edars
+            git pull origin main
+            docker compose pull
+            docker compose up -d --remove-orphans
+            sleep 10
+            curl -sf http://localhost:3000/health || exit 1
+            echo "Production deployment complete: $(date)"
