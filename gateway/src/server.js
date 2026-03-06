@@ -28,8 +28,7 @@ const { ipWhitelist } = require('./middleware/ipWhitelist');
 const { createThreatIntel, honeypotHandler, getThreatSummary } = require('./middleware/threatIntel');
 const { createHmacVerifier } = require('./middleware/hmacVerify');
 const { metricsCollector, metricsEndpoint } = require('./middleware/metrics');
-const { planGate } = require('./middleware/planGate');
-const { createUsageMeter } = require('./middleware/usageMeter');
+const tenancy = require('./middleware/tenancy');
 
 // ─── Routes ───────────────────────────────────────────────────
 const authRoutes = require('./routes/auth');
@@ -39,6 +38,7 @@ const analyticsRoutes = require('./routes/analytics');
 const auditRoutes = require('./routes/audit');
 const healthRoutes = require('./routes/health');
 const exportRoutes = require('./routes/exports');
+const adminTenantRoutes = require('./routes/admin/tenants');
 
 // ─── Database Pool (expanded) ─────────────────────────────────
 const pool = new Pool({
@@ -155,9 +155,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// ── Usage Metering (fire-and-forget after response) ──────────
-app.use(createUsageMeter(pool));
-
 // ── Request Logging ──────────────────────────────────────────
 app.use((req, res, next) => {
   const start = Date.now();
@@ -200,13 +197,17 @@ app.get('/metrics', metricsEndpoint(pool, redis));
 app.use('/api/v1/auth', authRoutes);
 
 // ─── Protected Routes ────────────────────────────────────────
-app.use('/api/v1/reports', authenticate, planGate, auditLog, reportRoutes);
-app.use('/api/v1/users', authenticate, planGate, auditLog, userRoutes);
-app.use('/api/v1/analytics', authenticate, planGate, auditLog, circuitBreaker('analytics'), analyticsRoutes);
-app.use('/api/v1/audit', authenticate, planGate, auditLog, auditRoutes);
-app.use('/api/v1/exports', authenticate, planGate, auditLog, exportRoutes);
+// Flow: authenticate → tenancy (plan gate) → auditLog → route handler
+app.use('/api/v1/reports', authenticate, tenancy, auditLog, reportRoutes);
+app.use('/api/v1/users', authenticate, tenancy, auditLog, userRoutes);
+app.use('/api/v1/analytics', authenticate, tenancy, auditLog, circuitBreaker('analytics'), analyticsRoutes);
+app.use('/api/v1/audit', authenticate, tenancy, auditLog, auditRoutes);
+app.use('/api/v1/exports', authenticate, tenancy, auditLog, exportRoutes);
 
 // ─── Admin-Only Internal Routes ──────────────────────────────
+// Tenant management (suspend, delete, list)
+app.use('/api/v1/admin', authenticate, tenancy, adminTenantRoutes);
+
 app.post('/api/v1/admin/refresh-views', authenticate, ipWhitelist, async (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin only' });
   try {

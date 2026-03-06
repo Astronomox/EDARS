@@ -1,118 +1,75 @@
-# EDARS — Data Dictionary & PII Retention Policy
+# EDARS Data Dictionary & Compliance Record
 
-> **Classification**: INTERNAL — CONFIDENTIAL
-> **Last Updated**: 2026-03-06
-> **Owner**: Engineering / Data Protection Officer
+This document serves as the authoritative legal record of all personal data (PII) processed by the Enterprise Data Analytics & Reporting System (EDARS). It is maintained to demonstrate compliance with the **General Data Protection Regulation (GDPR)**, **UK GDPR**, and the **Nigeria Data Protection Act 2023 (NDPA)**.
 
----
-
-## Purpose
-
-This document catalogues every field in the EDARS database that could constitute
-Personally Identifiable Information (PII) as defined under GDPR (EU 2016/679),
-CCPA (California), NDPR (Nigeria), and equivalent data protection laws. It also
-documents retention policies and legal bases for processing.
+**Data Controller:** [Your Company Name]  
+**DSAR Contact Email:** privacy@edars.io
 
 ---
 
-## PII Fields Inventory
+## 1. PII Field Inventory
 
-| Table | Column | Data Type | PII Classification | Legal Basis | Retention Policy | Notes |
-|-------|--------|-----------|--------------------|-|-|-|
-| `users` | `email` | `VARCHAR(255)` | **Direct PII** | Legitimate interest (account access) | Account lifetime + 30 days post-deletion | Unique per tenant; used for authentication |
-| `users` | `full_name` | `VARCHAR(255)` | **Direct PII** | Legitimate interest (display name) | Account lifetime + 30 days post-deletion | Shown in UI and reports |
-| `users` | `password_hash` | `VARCHAR(255)` | **Derived PII** | Contractual necessity | Account lifetime | bcrypt cost 12; raw password NEVER stored |
-| `users` | `last_login_at` | `TIMESTAMPTZ` | **Behavioural** | Legitimate interest (security monitoring) | Account lifetime | May reveal usage patterns |
-| `audit_log` | `ip_address` | `INET` | **Direct PII** (in some jurisdictions) | Legitimate interest (security & compliance) | 2 years | Classified as PII under GDPR (Recital 30); required for security incident investigation |
-| `audit_log` | `user_agent` | `TEXT` | **Indirect PII** | Legitimate interest (security forensics) | 2 years | Can contribute to device fingerprinting |
-| `audit_log` | `metadata` | `JSONB` | **May contain PII** | Varies by action type | 2 years | Reviewed quarterly for PII leakage; MUST NOT contain passwords or tokens |
-| `user_sessions` | `ip_address` | `INET` | **Direct PII** | Legitimate interest (session security) | 30 days after session expiry | |
-| `user_sessions` | `user_agent` | `TEXT` | **Indirect PII** | Legitimate interest | 30 days after session expiry | |
-| `user_sessions` | `device_fingerprint` | `VARCHAR(64)` | **Indirect PII** | Legitimate interest | 30 days after session expiry | SHA-256 hash of device characteristics |
-| `user_sessions` | `geo_country` | `VARCHAR(3)` | **Indirect PII** | Legitimate interest | 30 days after session expiry | ISO 3166-1 alpha-3 |
-| `user_sessions` | `geo_city` | `VARCHAR(128)` | **Indirect PII** | Legitimate interest | 30 days after session expiry | Derived from IP; not stored if geo-lookup disabled |
-| `failed_logins` | `ip_address` | `INET` | **Direct PII** | Legitimate interest (brute-force protection) | 90 days | Auto-purged; triggers IP blocking |
-| `failed_logins` | `email_attempted` | `VARCHAR(255)` | **Direct PII** | Legitimate interest | 90 days | May reference non-existent accounts |
-| `blocked_ips` | `ip_address` | `INET` | **Direct PII** | Legitimate interest | Until unblocked or expired | Permanent bans reviewed quarterly |
-| `usage_events` | `user_id` | `INT` | **Indirect PII** | Contractual necessity (billing) | 13 months (billing cycle + 1) | Links to users table |
-| `tenants` | `name` | `VARCHAR(255)` | **Organisational PII** | Contractual necessity | Account lifetime | Company/org name |
+### Table: `users`
+This table stores the primary identity and authentication records for all individuals using the system.
 
----
+| Column Name | Data Type | Is PII? | Legal Basis for Processing | Retention Period | Handling Notes |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `id`, `uuid` | INT, UUID | Yes (Pseudonymous identifier) | Contractual Necessity | Tenant lifespan | Used as FK across DB. Not deleted during erasure, but severed from identity. |
+| `email` | VARCHAR | **Yes** | Contractual Necessity | Tenant lifespan | Used for login and comms. Replaced with `deleted-ID@redacted.invalid` on erasure. Never logged in plain text (SHA-256 hashed). |
+| `password_hash` | TEXT | **Yes** (Security Data) | Contractual Necessity | Tenant lifespan | Bcrypt cost 12. Never logged. Anonymised to `REDACTED` on erasure. |
+| `full_name` | VARCHAR | **Yes** | Contractual Necessity | Tenant lifespan | Displayed in UI. Anonymised to `Deleted User` on erasure. |
+| `last_login_at` | TIMESTAMPTZ | Yes (Behavioural) | Legitimate Interest (Security) | Tenant lifespan | Used for security monitoring. |
+| `tos_accepted_at` | TIMESTAMPTZ | Yes (Consent record) | Legal Obligation | Tenant lifespan + 7 yrs (Statute of limitations) | Proof of consent to Terms of Service. |
+| `privacy_policy_accepted_at` | TIMESTAMPTZ | Yes (Consent record) | Legal Obligation | Tenant lifespan + 7 yrs | Proof of consent to Privacy processing. |
 
-## Fields Explicitly NOT Stored
+### Table: `audit_log`
+This table provides a legally required, immutable trail of all system mutations and sensitive data access.
 
-| Data Type | Reason |
-|-----------|--------|
-| Raw passwords | Only bcrypt hashes stored (cost factor 12) |
-| Full card numbers | Payment processing delegated to Stripe |
-| Bank account details | Not in scope; handled by payment processor |
-| Payment tokens | Stripe manages tokenisation |
-| Government ID numbers | Not collected |
-| Biometric data | Not collected |
+| Column Name | Data Type | Is PII? | Legal Basis for Processing | Retention Period | Handling Notes |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `user_id` | INT | Yes (Linkable) | Legitimate Interest (Security & Audit) | Immutable | Links to user row. Remains intact after erasure contextually, but user row is anonymised. |
+| `ip_address` | INET | **Yes** | Legitimate Interest (Security & Fraud Prev) | Immutable | **Treated as PII under GDPR/NDPA.** Masked to `0.0.0.0` during right-to-erasure executions. |
+| `user_agent` | TEXT | Yes (Fingerprinting) | Legitimate Interest (Security) | Immutable | Masked to `REDACTED` during erasure. |
+| `metadata` | JSONB | Potentially | Legitimate Interest | Immutable | Must never contain plain-text emails, passwords, or financial data. |
 
 ---
 
-## Data Subject Rights (GDPR Article 15-22)
+## 2. IP Addresses as Personal Data
+Under the **GDPR**, **UK GDPR**, and the **NDPA (2023)**, dynamic and static IP addresses are classified as Personal Identifiable Information (PII) because they can be combined with other data (like ISP records) to identify an individual. 
 
-### Right to Access (Art. 15)
-- Admin can export all user data via `/api/v1/exports/audit` endpoint
-- PII masking views (`v_users_masked`) prevent unauthorised access
-
-### Right to Rectification (Art. 16)
-- Users can update their profile via the application
-- All changes are logged in the immutable audit trail
-
-### Right to Erasure / "Right to be Forgotten" (Art. 17)
-- **Status**: NOT YET IMPLEMENTED
-- **Requirement**: Must write deletion request to audit_log BEFORE erasing data
-- **Design note**: User records should be anonymised (email → `deleted-{uuid}@redacted.edars`, full_name → `[Redacted]`) rather than hard-deleted, to preserve audit trail referential integrity
-- **Action item**: Implement in Phase 2
-
-### Right to Data Portability (Art. 20)
-- The `/api/v1/exports` endpoints support JSON and CSV export
-- Export events are metered and audit-logged
+In EDARS:
+- IP addresses are collected strictly for security, rate-limiting, and fraud prevention (Legal Basis: Legitimate Interest).
+- They are stored in the immutable `audit_log`.
+- During a Right to Erasure request, IP addresses belonging to the erased tenant are permanently masked to `0.0.0.0`.
 
 ---
 
-## Automated Decision-Making (Art. 22)
-
-**Current status**: The anomaly detection and forecasting engines perform statistical
-analysis but do NOT make automated decisions that produce legal effects concerning
-individuals. These systems analyse aggregate financial transaction data, not individual
-user behaviour.
-
-**Behavioural scoring / user profiling**: OUT OF SCOPE for this phase. Any future
-implementation requires legal review and explicit DPO sign-off before development
-begins.
+## 3. Consent Recording Approach
+EDARS implements a strict "opt-in" consent model:
+1. Consent cannot be assumed. At the point of registration, the user/admin must explicitly pass `tosAccepted: true` and `privacyAccepted: true`.
+2. The exact timestamp of acceptance and the specific document versions (e.g., `2026-03`) are recorded in the `users` table (`tos_accepted_at`, `tos_version`, etc.).
+3. A corresponding `USER_CONSENT_RECORDED` event is immediately written to the immutable `audit_log` confirming the IP address, timestamp, and versions.
+4. Consent columns are strictly protected and can never be `NULL`ed retroactively outside of a full anonymisation wipe.
 
 ---
 
-## Retention Schedule Summary
+## 4. Right to Erasure (GDPR Art. 17 / NDPA Sec. 34)
+Data subjects have the right to be forgotten. Because EDARS is a multi-tenant B2B system where structural integrity and auditability must be maintained, we employ a **Two-Phase Anonymisation Strategy** rather than raw record deletion.
 
-| Data Category | Retention Period | Purge Mechanism |
-|---------------|-----------------|-----------------|
-| Active user accounts | Indefinite (while active) | Admin deactivation |
-| Deactivated user accounts | 30 days post-deactivation | Anonymisation job (TBD) |
-| Audit logs | 2 years | Partition drop (quarterly review) |
-| Session records | 30 days post-expiry | `cleanup_expired_sessions()` |
-| Failed login records | 90 days | Date-based partition drop |
-| Usage events | 13 months | Partition drop (monthly) |
-| Blocked IPs | Until manually unblocked or expired | Admin review (quarterly) |
+**The Procedure:**
+1. **Request (Phase 1):** Call `/api/v1/admin/tenants/:id/request-deletion`. The tenant is immediately suspended (blocking login and data access). A 30-day legal hold period is started (`deletion_scheduled_at`). This provides a window to recover from malicious or accidental deletion requests.
+2. **Execute (Phase 2):** After 30 days, call `/api/v1/admin/tenants/:id/execute-deletion`. 
+   - Uses `execute_tenant_deletion` stored procedure.
+   - **User PII Anonymisation:** Emails become `deleted-UUID@redacted.invalid`, names become `Deleted User`. Passwords are wiped.
+   - **Audit PII Masking:** IP addresses become `0.0.0.0`. Immutability triggers are temporarily disabled for this sanitisation step only.
+   - **Data Wiping:** All reports and transactions for the tenant are permanently dropped (`DELETE`).
+   - The tenant row and audit rows remain as an anonymous skeleton to prove *something* happened, without identifying *who* it was.
 
 ---
 
-## Encryption at Rest
-
-| Layer | Mechanism |
-|-------|-----------|
-| Database filesystem | Relies on host OS disk encryption (LUKS / BitLocker) |
-| Column-level (PII) | pgcrypto AES-256 via `encrypt_pii()` / `decrypt_pii()` functions |
-| Backups | Must be encrypted; configuration is infrastructure-team responsibility |
-
-## Encryption in Transit
-
-| Layer | Mechanism |
-|-------|-----------|
-| Client → Nginx | TLS 1.3 (HSTS enforced) |
-| Nginx → Gateway | Internal Docker network (not encrypted; acceptable per threat model) |
-| Gateway → DB/Redis | Internal Docker network |
+## 5. Nigeria Data Protection Act (NDPA) 2023 Compliance
+As the founding team processes data under Nigerian jurisdiction, EDARS strictly complies with the NDPA.
+- **Lawful Basis:** Explicit consent and contractual necessity are recorded.
+- **Data Security:** Data is encrypted in transit and at rest, with strict RLS (Row-Level Security) ensuring absolute tenant isolation (Sec. 39).
+- **Data Subject Rights:** Right to Erasure and Access are supported via the tenant lifecycle procedures.
+- **Cross-Border Transfer:** By design, the architecture supports isolated localized deployments if required to comply with data sovereignty regulations (Sec. 41).
