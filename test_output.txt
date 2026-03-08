@@ -1,0 +1,658 @@
+﻿node.exe : PASS ../tests/unit/
+gateway/tenancy.test.js
+At line:1 char:1
++ & "C:\Program 
+Files\nodejs/node.exe" 
+"C:\Program 
+Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~
+    + CategoryInfo          : 
+    NotSpecified: (PASS ../t  
+  ests/u...tenancy.test.js:   
+ String) [], RemoteExcepti    
+on
+    + FullyQualifiedErrorId : 
+    NativeCommandError
+ 
+  tenancy (plan-gating) 
+middleware
+    ΓêÜ free plan cannot 
+access GET /analytics/trends 
+(22 ms)
+    ΓêÜ free plan cannot 
+access GET 
+/analytics/anomalies (2 ms)
+    ΓêÜ free plan cannot 
+access POST /reports (1 ms)
+    ΓêÜ free plan cannot 
+access GET /audit (2 ms)
+    ΓêÜ free plan CAN access 
+GET /analytics/dashboard 
+(ungated) (2 ms)
+    ΓêÜ free plan CAN access 
+GET /users/me (ungated) (1 ms)
+    ΓêÜ growth plan CAN 
+access GET /analytics/trends 
+(2 ms)
+    ΓêÜ growth plan CAN 
+access GET 
+/analytics/anomalies (2 ms)
+    ΓêÜ growth plan cannot 
+access GET /analytics/kpis 
+(enterprise only) (2 ms)
+    ΓêÜ enterprise plan CAN 
+access GET /analytics/kpis (1 
+ms)
+    ΓêÜ enterprise plan CAN 
+access all growth routes too 
+(3 ms)
+    ΓêÜ normalises 
+/users/:uuid to /users/:id 
+for gate lookup (1 ms)
+    ΓêÜ 403 response includes 
+upgradeUrl (3 ms)
+    ΓêÜ 403 response never 
+leaks stack traces (1 ms)
+
+FAIL tests/integration.test.js
+  Integration: Full Auth + 
+Analytics + Audit Flow
+    ├ù 1. POST 
+/api/v1/auth/login ΓÇö valid 
+credentials (101 ms)
+    ├ù 2. POST 
+/api/v1/auth/login ΓÇö 
+invalid credentials (13 ms)
+    ├ù 3. GET 
+/api/v1/users/me ΓÇö with 
+valid JWT (4 ms)
+    ├ù 4. GET 
+/api/v1/users/me ΓÇö without 
+JWT (4 ms)
+    ├ù 5. GET /api/v1/reports 
+ΓÇö authenticated, RLS-scoped 
+(4 ms)
+    ├ù 6. GET 
+/api/v1/analytics/dashboard 
+ΓÇö proxied to analytics 
+engine (4 ms)
+    ├ù 7. GET /api/v1/audit 
+ΓÇö verify audit trail 
+contains LOGIN entry (3 ms)
+    ├ù 8. POST 
+/api/v1/auth/refresh ΓÇö 
+token rotation (3 ms)
+    ├ù 9. POST 
+/api/v1/auth/logout ΓÇö 
+blacklists token (5 ms)
+    ├ù 10. GET after logout 
+ΓÇö token should be rejected 
+(4 ms)
+  Integration: RLS 
+Cross-Tenant Isolation
+    ├ù Viewer from 
+Engineering cannot see Sales 
+reports (4 ms)
+  Integration: Audit Log 
+Immutability
+    ├ù UPDATE on audit_log 
+should be rejected by trigger 
+(3 ms)
+
+  ΓùÅ Integration: Full Auth 
++ Analytics + Audit Flow ΓÇ║ 
+1. POST /api/v1/auth/login 
+ΓÇö valid credentials
+
+    AggregateError:
+
+
+
+  ΓùÅ Integration: Full Auth 
++ Analytics + Audit Flow ΓÇ║ 
+2. POST /api/v1/auth/login 
+ΓÇö invalid credentials
+
+    AggregateError:
+
+
+
+  ΓùÅ Integration: Full Auth 
++ Analytics + Audit Flow ΓÇ║ 
+3. GET /api/v1/users/me ΓÇö 
+with valid JWT
+
+    AggregateError:
+
+
+
+  ΓùÅ Integration: Full Auth 
++ Analytics + Audit Flow ΓÇ║ 
+4. GET /api/v1/users/me ΓÇö 
+without JWT
+
+    AggregateError:
+
+
+
+  ΓùÅ Integration: Full Auth 
++ Analytics + Audit Flow ΓÇ║ 
+5. GET /api/v1/reports ΓÇö 
+authenticated, RLS-scoped
+
+    AggregateError:
+
+
+
+  ΓùÅ Integration: Full Auth 
++ Analytics + Audit Flow ΓÇ║ 
+6. GET 
+/api/v1/analytics/dashboard 
+ΓÇö proxied to analytics 
+engine
+
+    AggregateError:
+
+
+
+  ΓùÅ Integration: Full Auth 
++ Analytics + Audit Flow ΓÇ║ 
+7. GET /api/v1/audit ΓÇö 
+verify audit trail contains 
+LOGIN entry
+
+    AggregateError:
+
+
+
+  ΓùÅ Integration: Full Auth 
++ Analytics + Audit Flow ΓÇ║ 
+8. POST /api/v1/auth/refresh 
+ΓÇö token rotation
+
+    AggregateError:
+
+
+
+  ΓùÅ Integration: Full Auth 
++ Analytics + Audit Flow ΓÇ║ 
+9. POST /api/v1/auth/logout 
+ΓÇö blacklists token
+
+    AggregateError:
+
+
+
+  ΓùÅ Integration: Full Auth 
++ Analytics + Audit Flow ΓÇ║ 
+10. GET after logout ΓÇö 
+token should be rejected
+
+    AggregateError:
+
+
+
+  ΓùÅ Integration: RLS 
+Cross-Tenant Isolation ΓÇ║ 
+Viewer from Engineering 
+cannot see Sales reports
+
+    AggregateError:
+
+
+
+  ΓùÅ Integration: Audit Log 
+Immutability ΓÇ║ UPDATE on 
+audit_log should be rejected 
+by trigger
+
+    AggregateError:
+
+
+
+FAIL ../tests/unit/gateway/rat
+eLimiter.test.js
+  ΓùÅ Test suite failed to run
+
+    Cannot find module 
+'ioredis' from '../tests/unit/
+gateway/rateLimiter.test.js'
+
+    [0m [90m 13 |[39m 
+[90m// We use ioredis-mock 
+so these tests run without a 
+real Redis server.[39m
+     [90m 14 |[39m [90m// 
+Install: npm install -D 
+ioredis-mock[39m
+    [31m[1m>[22m[39m[90m 
+15 |[39m jest[33m.[39mmock(
+[32m'ioredis'[39m[33m,[39m
+ () [33m=>[39m require([32m
+'ioredis-mock'[39m))[33m;[3
+9m
+     [90m    |[39m      
+[31m[1m^[22m[39m
+     [90m 16 |[39m
+     [90m 17 |[39m process[
+33m.[39menv[33m.[39m[33mRA
+TE_LIMIT_WINDOW_MS[39m 
+[33m=[39m 
+[32m'900000'[39m[33m;[39m
+     [90m 18 |[39m process[
+33m.[39menv[33m.[39m[33mRA
+TE_LIMIT_MAX[39m [33m=[39m 
+[32m'100'[39m[33m;[39m[0m
+
+      at Resolver._throwModNot
+FoundError (node_modules/jest-
+resolve/build/resolver.js:427:
+11)
+      at Object.mock (../tests
+/unit/gateway/rateLimiter.test
+.js:15:6)
+
+FAIL ../tests/unit/gateway/aut
+h.test.js
+  ΓùÅ Test suite failed to run
+
+    Cannot find module 
+'jsonwebtoken' from '../tests/
+unit/gateway/auth.test.js'
+
+    [0m [90m  9 |[39m 
+[90m */[39m
+     [90m 10 |[39m
+    [31m[1m>[22m[39m[90m 
+11 |[39m [36mconst[39m jwt 
+[33m=[39m require([32m'json
+webtoken'[39m)[33m;[39m
+     [90m    |[39m          
+   [31m[1m^[22m[39m
+     [90m 12 |[39m
+     [90m 13 |[39m [90m// 
+ΓöÇΓöÇ Mock environment 
+before requiring the module Γö
+ÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö
+ÇΓöÇΓöÇΓöÇ[39m
+     [90m 14 |[39m process[
+33m.[39menv[33m.[39m[33mJW
+T_SECRET[39m [33m=[39m [32
+m'test-primary-secret'[39m[3
+3m;[39m[0m
+
+      at Resolver._throwModNot
+FoundError (node_modules/jest-
+resolve/build/resolver.js:427:
+11)
+      at Object.require (../te
+sts/unit/gateway/auth.test.js:
+11:13)
+
+[33mwarn[39m: Blacklisted token used {"ip":"127.0.0.1","requestId":"test-req-id","service":"edars-gateway","timestamp":"2026-03-08T13:38:53.012+01:00"}
+[33mwarn[39m: Token missing valid tenantId {"ip":"127.0.0.1","requestId":"test-req-id","service":"edars-gateway","timestamp":"2026-03-08T13:38:53.028+01:00"}
+[33mwarn[39m: Unauthorized access attempt {"path":"/test","requestId":"test-req-id","requiredRoles":["admin"],"role":"viewer","service":"edars-gateway","timestamp":"2026-03-08T13:38:53.036+01:00"}
+  console.error
+    TypeError: Cannot read properties of undefined (reading 'get')
+        at Object.trustProxy (C:\Users\Main\Devil\gateway\node_modules\express-rate-limit\dist\index.cjs:166:21)
+        at Object.wrappedValidations.<computed> [as trustProxy] (C:\Users\Main\Devil\gateway\node_modules\express-rate-limit\dist\index.cjs:397:22)
+        at Object.keyGenerator (C:\Users\Main\Devil\gateway\node_modules\express-rate-limit\dist\index.cjs:657:20)
+        at C:\Users\Main\Devil\gateway\node_modules\express-rate-limit\dist\index.cjs:710:32
+        at processTicksAndRejections (node:internal/process/task_queues:105:5)
+        at C:\Users\Main\Devil\gateway\node_modules\express-rate-limit\dist\index.cjs:691:5
+        at Object.<anonymous> (C:\Users\Main\Devil\gateway\tests\middleware.test.js:276:9)
+
+    [0m [90m 274 |[39m         [36mconst[39m next [33m=[39m jest[33m.[39mfn()[33m;[39m
+     [90m 275 |[39m
+    [31m[1m>[22m[39m[90m 276 |[39m         [36mawait[39m middleware(req[33m,[39m res[33m,[39m next)[33m;[39m
+     [90m     |[39m         [31m[1m^[22m[39m
+     [90m 277 |[39m
+     [90m 278 |[39m         expect(next)[33m.[39mtoHaveBeenCalled()[33m;[39m
+     [90m 279 |[39m     })[33m;[39m[0m
+
+      at Object.wrappedValidations.<computed> [as trustProxy] (node_modules/express-rate-limit/dist/index.cjs:403:24)
+      at Object.keyGenerator (node_modules/express-rate-limit/dist/index.cjs:657:20)
+      at node_modules/express-rate-limit/dist/index.cjs:710:32
+      at node_modules/express-rate-limit/dist/index.cjs:691:5
+      at Object.<anonymous> (tests/middleware.test.js:276:9)
+
+[33mwarn[39m: IP whitelist rejection {"ip":"203.0.113.50","path":"/test","requestId":"test-req-id","service":"edars-gateway","timestamp":"2026-03-08T13:38:53.156+01:00"}
+[32minfo[39m: Plan gate denied access {"path":"/api/v1/exports/transactions","requestId":"test-req-id","requiredPlan":"growth","service":"edars-gateway","tenantId":1,"tenantPlan":"free","timestamp":"2026-03-08T13:38:53.162+01:00"}
+[32minfo[39m: Plan gate denied access {"path":"/api/v1/admin/refresh-views","requestId":"test-req-id","requiredPlan":"enterprise","service":"edars-gateway","tenantId":1,"tenantPlan":"growth","timestamp":"2026-03-08T13:38:53.164+01:00"}
+FAIL tests/middleware.test.js
+  Auth Middleware
+    authenticate
+      ├ù rejects request 
+without Authorization header 
+(24 ms)
+      ΓêÜ rejects request 
+with malformed Authorization 
+header (2 ms)
+      ├ù rejects expired JWT 
+(9 ms)
+      ├ù rejects blacklisted 
+token (12 ms)
+      ├ù rejects refresh 
+token used as access token (4 
+ms)
+      ├ù accepts valid token 
+and attaches user with tenant 
+fields (6 ms)
+      ΓêÜ rejects token with 
+wrong algorithm (3 ms)
+    authorize
+      ΓêÜ allows user with 
+correct role (1 ms)
+      ΓêÜ rejects user 
+without required role (3 ms)
+      ΓêÜ rejects 
+unauthenticated request
+  Sanitise Middleware
+    ΓêÜ strips HTML tags from 
+string fields in body (2 ms)
+    ΓêÜ strips HTML tags from 
+query parameters (2 ms)
+    ΓêÜ preserves non-string 
+values (3 ms)
+  Rate Limiter Middleware
+    ΓêÜ allows request under 
+limit (106 ms)
+  IP Whitelist Middleware
+    ΓêÜ allows whitelisted IP 
+(1 ms)
+    ΓêÜ allows IP in 
+whitelisted CIDR range (1 ms)
+    ΓêÜ rejects 
+non-whitelisted IP (2 ms)
+  Request Tracer Middleware
+    ΓêÜ generates a request 
+ID if none provided (3 ms)
+    ΓêÜ preserves existing 
+X-Request-ID (1 ms)
+  Plan Gate Middleware
+    ΓêÜ allows free plan on 
+free-tier routes
+    ΓêÜ blocks free plan from 
+growth-tier routes (1 ms)
+    ΓêÜ blocks growth plan 
+from enterprise-tier routes 
+(2 ms)
+    ΓêÜ allows enterprise 
+plan on all routes
+    ΓêÜ hasAccess returns 
+correct boolean (2 ms)
+  Audit Middleware
+    ΓêÜ logs audit entry and 
+calls next (1 ms)
+  Usage Meter Middleware
+    ΓêÜ resolves correct 
+event type for report creation
+    ΓêÜ resolves api_call for 
+generic GET (1 ms)
+    ΓêÜ resolves login event
+    ΓêÜ skips metering for 
+unauthenticated requests
+  Circuit Breaker
+    ΓêÜ returns a middleware 
+function (1 ms)
+    ΓêÜ getBreakerStates 
+returns an object
+    ΓêÜ allows request when 
+circuit is closed (1 ms)
+
+  ΓùÅ Auth Middleware ΓÇ║ 
+authenticate ΓÇ║ rejects 
+request without Authorization 
+header
+
+    expect(jest.fn()).toHaveBe
+enCalledWith(...expected)
+
+    Expected: 
+ObjectContaining {"error": 
+"Authentication required"}
+    Received: {"code": 
+"MISSING_TOKEN", 
+"correlationId": 
+"test-req-id", "error": 
+"AUTHENTICATION_REQUIRED"}
+
+    Number of calls: 1
+
+    [0m [90m 75 |[39m
+     [90m 76 |[39m          
+   expect(res[33m.[39mstatus
+)[33m.[39mtoHaveBeenCalledWi
+th([35m401[39m)[33m;[39m
+    [31m[1m>[22m[39m[90m 
+77 |[39m             expect(r
+es[33m.[39mjson)[33m.[39mt
+oHaveBeenCalledWith(expect[33
+m.[39mobjectContaining({ 
+error[33m:[39m 
+[32m'Authentication 
+required'[39m }))[33m;[39m
+     [90m    |[39m          
+                    
+[31m[1m^[22m[39m
+     [90m 78 |[39m          
+   expect(next)[33m.[39mnot
+[33m.[39mtoHaveBeenCalled()[
+33m;[39m
+     [90m 79 |[39m         
+})[33m;[39m
+     [90m 80 |[39m[0m
+
+      at 
+Object.toHaveBeenCalledWith (t
+ests/middleware.test.js:77:30)
+
+  ΓùÅ Auth Middleware ΓÇ║ 
+authenticate ΓÇ║ rejects 
+expired JWT
+
+    expect(jest.fn()).toHaveBe
+enCalledWith(...expected)
+
+    Expected: 
+ObjectContaining {"error": 
+StringContaining "expired"}
+    Received: {"code": 
+"TOKEN_EXPIRED_OR_INVALID", 
+"correlationId": 
+"test-req-id", "error": 
+"TOKEN_EXPIRED"}
+
+    Number of calls: 1
+
+    [0m [90m 102 |[39m
+     [90m 103 |[39m         
+    expect(res[33m.[39mstatu
+s)[33m.[39mtoHaveBeenCalledW
+ith([35m401[39m)[33m;[39m
+    [31m[1m>[22m[39m[90m 
+104 |[39m             expect(
+res[33m.[39mjson)[33m.[39m
+toHaveBeenCalledWith(expect[3
+3m.[39mobjectContaining({ 
+error[33m:[39m expect[33m.
+[39mstringContaining([32m'exp
+ired'[39m) }))[33m;[39m
+     [90m     |[39m         
+                     
+[31m[1m^[22m[39m
+     [90m 105 |[39m         
+})[33m;[39m
+     [90m 106 |[39m
+     [90m 107 |[39m         
+test([32m'rejects 
+blacklisted 
+token'[39m[33m,[39m 
+[36masync[39m () 
+[33m=>[39m {[0m
+
+      at 
+Object.toHaveBeenCalledWith (t
+ests/middleware.test.js:104:30
+)
+
+  ΓùÅ Auth Middleware ΓÇ║ 
+authenticate ΓÇ║ rejects 
+blacklisted token
+
+    expect(jest.fn()).toHaveBe
+enCalledWith(...expected)
+
+    Expected: 
+ObjectContaining {"error": 
+"Token has been revoked"}
+    Received: {"code": 
+"BLACKLISTED", 
+"correlationId": 
+"test-req-id", "error": 
+"TOKEN_REVOKED"}
+
+    Number of calls: 1
+
+    [0m [90m 118 |[39m
+     [90m 119 |[39m         
+    expect(res[33m.[39mstatu
+s)[33m.[39mtoHaveBeenCalledW
+ith([35m401[39m)[33m;[39m
+    [31m[1m>[22m[39m[90m 
+120 |[39m             expect(
+res[33m.[39mjson)[33m.[39m
+toHaveBeenCalledWith(expect[3
+3m.[39mobjectContaining({ 
+error[33m:[39m [32m'Token 
+has been revoked'[39m 
+}))[33m;[39m
+     [90m     |[39m         
+                     
+[31m[1m^[22m[39m
+     [90m 121 |[39m         
+})[33m;[39m
+     [90m 122 |[39m
+     [90m 123 |[39m         
+test([32m'rejects refresh 
+token used as access 
+token'[39m[33m,[39m 
+[36masync[39m () 
+[33m=>[39m {[0m
+
+      at 
+Object.toHaveBeenCalledWith (t
+ests/middleware.test.js:120:30
+)
+
+  ΓùÅ Auth Middleware ΓÇ║ 
+authenticate ΓÇ║ rejects 
+refresh token used as access 
+token
+
+    expect(jest.fn()).toHaveBe
+enCalledWith(...expected)
+
+    Expected: 
+ObjectContaining {"error": 
+StringContaining "refresh"}
+    Received: {"code": 
+"REFRESH_AS_ACCESS", 
+"correlationId": 
+"test-req-id", "error": 
+"INVALID_TOKEN"}
+
+    Number of calls: 1
+
+    [0m [90m 130 |[39m
+     [90m 131 |[39m         
+    expect(res[33m.[39mstatu
+s)[33m.[39mtoHaveBeenCalledW
+ith([35m401[39m)[33m;[39m
+    [31m[1m>[22m[39m[90m 
+132 |[39m             expect(
+res[33m.[39mjson)[33m.[39m
+toHaveBeenCalledWith(expect[3
+3m.[39mobjectContaining({ 
+error[33m:[39m expect[33m.
+[39mstringContaining([32m'ref
+resh'[39m) }))[33m;[39m
+     [90m     |[39m         
+                     
+[31m[1m^[22m[39m
+     [90m 133 |[39m         
+})[33m;[39m
+     [90m 134 |[39m
+     [90m 135 |[39m         
+test([32m'accepts valid 
+token and attaches user with 
+tenant 
+fields'[39m[33m,[39m 
+[36masync[39m () 
+[33m=>[39m {[0m
+
+      at 
+Object.toHaveBeenCalledWith (t
+ests/middleware.test.js:132:30
+)
+
+  ΓùÅ Auth Middleware ΓÇ║ 
+authenticate ΓÇ║ accepts 
+valid token and attaches user 
+with tenant fields
+
+    expect(jest.fn()).toHaveBe
+enCalled()
+
+    Expected number of calls: 
+>= 1
+    Received number of calls: 
+   0
+
+    [0m [90m 143 |[39m     
+        [36mawait[39m 
+authenticate(req[33m,[39m 
+res[33m,[39m 
+next)[33m;[39m
+     [90m 144 |[39m
+    [31m[1m>[22m[39m[90m 
+145 |[39m             expect(
+next)[33m.[39mtoHaveBeenCall
+ed()[33m;[39m
+     [90m     |[39m         
+                 
+[31m[1m^[22m[39m
+     [90m 146 |[39m         
+    expect(req[33m.[39muser)
+[33m.[39mtoBeDefined()[33m;
+[39m
+     [90m 147 |[39m         
+    expect(req[33m.[39muser
+[33m.[39mid)[33m.[39mtoBe(
+[35m1[39m)[33m;[39m
+     [90m 148 |[39m         
+    expect(req[33m.[39muser
+[33m.[39mtenantId)[33m.[39m
+toBe([35m42[39m)[33m;[39m
+[0m
+
+      at 
+Object.toHaveBeenCalled (tests
+/middleware.test.js:145:26)
+
+Test Suites: 4 failed, 1 
+passed, 5 total
+Tests:       17 failed, 41 
+passed, 58 total
+Snapshots:   0 total
+Time:        2.919 s, 
+estimated 3 s
+Ran all test suites.
+Force exiting Jest: Have you 
+considered using 
+`--detectOpenHandles` to 
+detect async operations that 
+kept running after all tests 
+finished?

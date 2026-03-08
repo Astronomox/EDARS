@@ -4,8 +4,16 @@
     "<rootDir>/../tests/unit/gateway",
     "<rootDir>/tests"
   ],
+  "moduleDirectories": [
+    "node_modules",
+    "<rootDir>/node_modules"
+  ],
   "testMatch": [
     "**/*.test.js"
+  ],
+  "testPathIgnorePatterns": [
+    "/node_modules/",
+    "integration.test.js"
   ],
   "collectCoverage": true,
   "coverageDirectory": "coverage",

@@ -1,25 +1,40 @@
-// ═══════════════════════════════════════════════════════════════
-// Integration Test: Full Auth Flow + Analytics + Audit Trail
-// ═══════════════════════════════════════════════════════════════
-// Tests the complete request lifecycle:
-//   1. POST /auth/login → get JWT
-//   2. Authenticated GET → analytics proxied response
-//   3. Verify audit log entry was written
-//
-// NOTE: These tests require docker-compose services running.
-//       Run with: docker-compose up -d && npm run test:integration
-// ═══════════════════════════════════════════════════════════════
+const http = require('http');
+const { URL } = require('url');
 
 const BASE_URL = process.env.TEST_BASE_URL || 'http://localhost:3000';
 
-async function fetchJSON(path, options = {}) {
-    const fetch = (await import('node-fetch')).default;
-    const res = await fetch(`${BASE_URL}${path}`, {
-        headers: { 'Content-Type': 'application/json', ...options.headers },
-        ...options,
+function fetchJSON(path, options = {}) {
+    return new Promise((resolve, reject) => {
+        const url = new URL(path, BASE_URL);
+        const reqHeaders = {
+            'Content-Type': 'application/json',
+            ...(options.headers || {}),
+        };
+        const reqOptions = {
+            hostname: url.hostname,
+            port: url.port,
+            path: url.pathname + url.search,
+            method: options.method || 'GET',
+            headers: reqHeaders,
+        };
+
+        const req = http.request(reqOptions, (res) => {
+            let data = '';
+            res.on('data', (chunk) => { data += chunk; });
+            res.on('end', () => {
+                let body = {};
+                try { body = JSON.parse(data); } catch (_) { /* empty */ }
+                resolve({ status: res.statusCode, body, headers: res.headers });
+            });
+        });
+
+        req.on('error', reject);
+
+        if (options.body) {
+            req.write(options.body);
+        }
+        req.end();
     });
-    const body = await res.json().catch(() => ({}));
-    return { status: res.status, body, headers: res.headers };
 }
 
 describe('Integration: Full Auth + Analytics + Audit Flow', () => {

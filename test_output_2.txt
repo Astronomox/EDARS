@@ -1,0 +1,486 @@
+﻿node.exe : FAIL 
+tests/integration.test.js
+At line:1 char:1
++ & "C:\Program 
+Files\nodejs/node.exe" 
+"C:\Program 
+Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~
+    + CategoryInfo          : 
+    NotSpecified: (FAIL test  
+  s/integration.test.js:Str   
+ ing) [], RemoteException
+    + FullyQualifiedErrorId : 
+    NativeCommandError
+ 
+  Integration: Full Auth + 
+Analytics + Audit Flow
+    ├ù 1. POST 
+/api/v1/auth/login ΓÇö valid 
+credentials (74 ms)
+    ├ù 2. POST 
+/api/v1/auth/login ΓÇö 
+invalid credentials (7 ms)
+    ├ù 3. GET 
+/api/v1/users/me ΓÇö with 
+valid JWT (4 ms)
+    ├ù 4. GET 
+/api/v1/users/me ΓÇö without 
+JWT (7 ms)
+    ├ù 5. GET /api/v1/reports 
+ΓÇö authenticated, RLS-scoped 
+(4 ms)
+    ├ù 6. GET 
+/api/v1/analytics/dashboard 
+ΓÇö proxied to analytics 
+engine (4 ms)
+    ├ù 7. GET /api/v1/audit 
+ΓÇö verify audit trail 
+contains LOGIN entry (4 ms)
+    ├ù 8. POST 
+/api/v1/auth/refresh ΓÇö 
+token rotation (3 ms)
+    ├ù 9. POST 
+/api/v1/auth/logout ΓÇö 
+blacklists token (4 ms)
+    ├ù 10. GET after logout 
+ΓÇö token should be rejected 
+(4 ms)
+  Integration: RLS 
+Cross-Tenant Isolation
+    ├ù Viewer from 
+Engineering cannot see Sales 
+reports (4 ms)
+  Integration: Audit Log 
+Immutability
+    ├ù UPDATE on audit_log 
+should be rejected by trigger 
+(3 ms)
+
+  ΓùÅ Integration: Full Auth 
++ Analytics + Audit Flow ΓÇ║ 
+1. POST /api/v1/auth/login 
+ΓÇö valid credentials
+
+    AggregateError:
+
+
+
+  ΓùÅ Integration: Full Auth 
++ Analytics + Audit Flow ΓÇ║ 
+2. POST /api/v1/auth/login 
+ΓÇö invalid credentials
+
+    AggregateError:
+
+
+
+  ΓùÅ Integration: Full Auth 
++ Analytics + Audit Flow ΓÇ║ 
+3. GET /api/v1/users/me ΓÇö 
+with valid JWT
+
+    AggregateError:
+
+
+
+  ΓùÅ Integration: Full Auth 
++ Analytics + Audit Flow ΓÇ║ 
+4. GET /api/v1/users/me ΓÇö 
+without JWT
+
+    AggregateError:
+
+
+
+  ΓùÅ Integration: Full Auth 
++ Analytics + Audit Flow ΓÇ║ 
+5. GET /api/v1/reports ΓÇö 
+authenticated, RLS-scoped
+
+    AggregateError:
+
+
+
+  ΓùÅ Integration: Full Auth 
++ Analytics + Audit Flow ΓÇ║ 
+6. GET 
+/api/v1/analytics/dashboard 
+ΓÇö proxied to analytics 
+engine
+
+    AggregateError:
+
+
+
+  ΓùÅ Integration: Full Auth 
++ Analytics + Audit Flow ΓÇ║ 
+7. GET /api/v1/audit ΓÇö 
+verify audit trail contains 
+LOGIN entry
+
+    AggregateError:
+
+
+
+  ΓùÅ Integration: Full Auth 
++ Analytics + Audit Flow ΓÇ║ 
+8. POST /api/v1/auth/refresh 
+ΓÇö token rotation
+
+    AggregateError:
+
+
+
+  ΓùÅ Integration: Full Auth 
++ Analytics + Audit Flow ΓÇ║ 
+9. POST /api/v1/auth/logout 
+ΓÇö blacklists token
+
+    AggregateError:
+
+
+
+  ΓùÅ Integration: Full Auth 
++ Analytics + Audit Flow ΓÇ║ 
+10. GET after logout ΓÇö 
+token should be rejected
+
+    AggregateError:
+
+
+
+  ΓùÅ Integration: RLS 
+Cross-Tenant Isolation ΓÇ║ 
+Viewer from Engineering 
+cannot see Sales reports
+
+    AggregateError:
+
+
+
+  ΓùÅ Integration: Audit Log 
+Immutability ΓÇ║ UPDATE on 
+audit_log should be rejected 
+by trigger
+
+    AggregateError:
+
+
+
+FAIL ../tests/unit/gateway/aut
+h.test.js
+  authenticate middleware
+    ΓêÜ calls next() and sets 
+req.user when JWT is valid 
+(70 ms)
+    ΓêÜ sets all required 
+user fields on req.user (19 
+ms)
+    ΓêÜ returns 401 when 
+Authorization header is 
+absent (3 ms)
+    ΓêÜ returns 401 when 
+token is malformed (not a 
+JWT) (2 ms)
+    ΓêÜ returns 401 when 
+token is signed with wrong 
+secret (6 ms)
+    ├ù returns 401 when JWT 
+is expired (2 ms)
+    ΓêÜ returns 401 when 
+tenantId is missing from 
+payload (8 ms)
+    ΓêÜ returns 401 when 
+tenantId is not a valid UUID 
+(7 ms)
+    ΓêÜ accepts token signed 
+with legacy secret during 
+rotation window (8 ms)
+    ΓêÜ rejects token when 
+neither primary nor legacy 
+secret match (11 ms)
+    ΓêÜ error responses never 
+leak internal stack traces (4 
+ms)
+
+  ΓùÅ authenticate middleware 
+ΓÇ║ returns 401 when JWT is 
+expired
+
+    "expiresIn" should be a 
+number of seconds or string 
+representing a timespan eg: 
+"1d", "20h", 60
+
+    [0m [90m 41 |[39m     
+[33m...[39moverrides[33m,[3
+9m
+     [90m 42 |[39m   
+}[33m;[39m
+    [31m[1m>[22m[39m[90m 
+43 |[39m   [36mreturn[39m j
+wt[33m.[39msign(payload[33m
+,[39m process[33m.[39menv[
+33m.[39m[33mJWT_SECRET[39m
+[33m,[39m {
+     [90m    |[39m          
+    [31m[1m^[22m[39m
+     [90m 44 |[39m     
+expiresIn[33m:[39m 
+[32m'8h'[39m[33m,[39m
+     [90m 45 |[39m     [33m
+...[39msignOpts[33m,[39m
+     [90m 46 |[39m   
+})[33m;[39m[0m
+
+      at Object.<anonymous>.mo
+dule.exports [as sign] (node_m
+odules/jsonwebtoken/sign.js:21
+3:22)
+      at sign (../tests/unit/g
+ateway/auth.test.js:43:14)
+      at Object.makeToken (../
+tests/unit/gateway/auth.test.j
+s:144:26)
+
+PASS ../tests/unit/gateway/ten
+ancy.test.js
+  tenancy (plan-gating) 
+middleware
+    ΓêÜ free plan cannot 
+access GET /analytics/trends 
+(10 ms)
+    ΓêÜ free plan cannot 
+access GET 
+/analytics/anomalies (2 ms)
+    ΓêÜ free plan cannot 
+access POST /reports (1 ms)
+    ΓêÜ free plan cannot 
+access GET /audit (1 ms)
+    ΓêÜ free plan CAN access 
+GET /analytics/dashboard 
+(ungated) (2 ms)
+    ΓêÜ free plan CAN access 
+GET /users/me (ungated) (1 ms)
+    ΓêÜ growth plan CAN 
+access GET /analytics/trends 
+(10 ms)
+    ΓêÜ growth plan CAN 
+access GET 
+/analytics/anomalies (1 ms)
+    ΓêÜ growth plan cannot 
+access GET /analytics/kpis 
+(enterprise only) (2 ms)
+    ΓêÜ enterprise plan CAN 
+access GET /analytics/kpis (1 
+ms)
+    ΓêÜ enterprise plan CAN 
+access all growth routes too 
+(3 ms)
+    ΓêÜ normalises 
+/users/:uuid to /users/:id 
+for gate lookup (1 ms)
+    ΓêÜ 403 response includes 
+upgradeUrl (2 ms)
+    ΓêÜ 403 response never 
+leaks stack traces (1 ms)
+
+  console.error
+    TypeError: Cannot read properties of undefined (reading 'get')
+        at Object.trustProxy (C:\Users\Main\Devil\gateway\node_modules\express-rate-limit\dist\index.cjs:166:21)
+        at Object.wrappedValidations.<computed> [as trustProxy] (C:\Users\Main\Devil\gateway\node_modules\express-rate-limit\dist\index.cjs:397:22)
+        at Object.keyGenerator (C:\Users\Main\Devil\gateway\node_modules\express-rate-limit\dist\index.cjs:657:20)
+        at C:\Users\Main\Devil\gateway\node_modules\express-rate-limit\dist\index.cjs:710:32
+        at processTicksAndRejections (node:internal/process/task_queues:105:5)
+        at C:\Users\Main\Devil\gateway\node_modules\express-rate-limit\dist\index.cjs:691:5
+
+      at Object.wrappedValidations.<computed> [as trustProxy] (node_modules/express-rate-limit/dist/index.cjs:403:24)
+      at Object.keyGenerator (node_modules/express-rate-limit/dist/index.cjs:657:20)
+      at node_modules/express-rate-limit/dist/index.cjs:710:32
+      at node_modules/express-rate-limit/dist/index.cjs:691:5
+
+[33mwarn[39m: Blacklisted token used {"ip":"127.0.0.1","requestId":"test-req-id","service":"edars-gateway","timestamp":"2026-03-08T13:46:19.842+01:00"}
+[33mwarn[39m: Unauthorized access attempt {"path":"/test","requestId":"test-req-id","requiredRoles":["admin"],"role":"viewer","service":"edars-gateway","timestamp":"2026-03-08T13:46:19.863+01:00"}
+[33mwarn[39m: IP whitelist rejection {"ip":"203.0.113.50","path":"/test","requestId":"test-req-id","service":"edars-gateway","timestamp":"2026-03-08T13:46:19.875+01:00"}
+[32minfo[39m: Plan gate denied access {"path":"/api/v1/exports/transactions","requestId":"test-req-id","requiredPlan":"growth","service":"edars-gateway","tenantId":1,"tenantPlan":"free","timestamp":"2026-03-08T13:46:19.887+01:00"}
+[32minfo[39m: Plan gate denied access {"path":"/api/v1/admin/refresh-views","requestId":"test-req-id","requiredPlan":"enterprise","service":"edars-gateway","tenantId":1,"tenantPlan":"growth","timestamp":"2026-03-08T13:46:19.888+01:00"}
+  console.error
+    TypeError: Cannot read properties of undefined (reading 'get')
+        at Object.trustProxy (C:\Users\Main\Devil\gateway\node_modules\express-rate-limit\dist\index.cjs:166:21)
+        at Object.wrappedValidations.<computed> [as trustProxy] (C:\Users\Main\Devil\gateway\node_modules\express-rate-limit\dist\index.cjs:397:22)
+        at Object.keyGenerator (C:\Users\Main\Devil\gateway\node_modules\express-rate-limit\dist\index.cjs:657:20)
+        at C:\Users\Main\Devil\gateway\node_modules\express-rate-limit\dist\index.cjs:710:32
+        at C:\Users\Main\Devil\gateway\node_modules\express-rate-limit\dist\index.cjs:691:5
+
+      at Object.wrappedValidations.<computed> [as trustProxy] (node_modules/express-rate-limit/dist/index.cjs:403:24)
+      at Object.keyGenerator (node_modules/express-rate-limit/dist/index.cjs:657:20)
+      at node_modules/express-rate-limit/dist/index.cjs:710:32
+      at node_modules/express-rate-limit/dist/index.cjs:691:5
+
+FAIL tests/middleware.test.js
+  Auth Middleware
+    authenticate
+      ΓêÜ rejects request 
+without Authorization header 
+(31 ms)
+      ΓêÜ rejects request 
+with malformed Authorization 
+header (2 ms)
+      ├ù rejects expired JWT 
+(6 ms)
+      ΓêÜ rejects blacklisted 
+token (9 ms)
+      ΓêÜ rejects refresh 
+token used as access token (6 
+ms)
+      ΓêÜ accepts valid token 
+and attaches user with tenant 
+fields (5 ms)
+      ΓêÜ rejects token with 
+wrong algorithm (3 ms)
+    authorize
+      ΓêÜ allows user with 
+correct role (1 ms)
+      ΓêÜ rejects user 
+without required role (2 ms)
+      ΓêÜ rejects 
+unauthenticated request (1 ms)
+  Sanitise Middleware
+    ΓêÜ strips HTML tags from 
+string fields in body (2 ms)
+    ΓêÜ strips HTML tags from 
+query parameters (1 ms)
+    ΓêÜ preserves non-string 
+values (1 ms)
+  Rate Limiter Middleware
+    ΓêÜ allows request under 
+limit (2 ms)
+  IP Whitelist Middleware
+    ΓêÜ allows whitelisted IP
+    ΓêÜ allows IP in 
+whitelisted CIDR range (1 ms)
+    ΓêÜ rejects 
+non-whitelisted IP (2 ms)
+  Request Tracer Middleware
+    ΓêÜ generates a request 
+ID if none provided (3 ms)
+    ΓêÜ preserves existing 
+X-Request-ID (5 ms)
+  Plan Gate Middleware
+    ΓêÜ allows free plan on 
+free-tier routes (1 ms)
+    ΓêÜ blocks free plan from 
+growth-tier routes (2 ms)
+    ΓêÜ blocks growth plan 
+from enterprise-tier routes 
+(1 ms)
+    ΓêÜ allows enterprise 
+plan on all routes (1 ms)
+    ΓêÜ hasAccess returns 
+correct boolean
+  Audit Middleware
+    ΓêÜ logs audit entry and 
+calls next
+  Usage Meter Middleware
+    ΓêÜ resolves correct 
+event type for report 
+creation (1 ms)
+    ΓêÜ resolves api_call for 
+generic GET
+    ΓêÜ resolves login event
+    ΓêÜ skips metering for 
+unauthenticated requests (1 
+ms)
+  Circuit Breaker
+    ΓêÜ returns a middleware 
+function (1 ms)
+    ΓêÜ getBreakerStates 
+returns an object
+    ΓêÜ allows request when 
+circuit is closed (1 ms)
+
+  ΓùÅ Auth Middleware ΓÇ║ 
+authenticate ΓÇ║ rejects 
+expired JWT
+
+    "expiresIn" should be a 
+number of seconds or string 
+representing a timespan eg: 
+"1d", "20h", 60
+
+    [0m [90m 92 |[39m
+     [90m 93 |[39m         
+test([32m'rejects expired 
+JWT'[39m[33m,[39m 
+[36masync[39m () 
+[33m=>[39m {
+    [31m[1m>[22m[39m[90m 
+94 |[39m             
+[36mconst[39m token 
+[33m=[39m 
+jwt[33m.[39msign(
+     [90m    |[39m          
+                     
+[31m[1m^[22m[39m
+     [90m 95 |[39m          
+       { id[33m:[39m 
+[35m1[39m[33m,[39m 
+type[33m:[39m 
+[32m'access'[39m 
+}[33m,[39m [33mJWT_SECRET[
+39m[33m,[39m
+     [90m 96 |[39m          
+       { algorithm[33m:[39m 
+[32m'HS256'[39m[33m,[39m 
+expiresIn[33m:[39m 
+[32m'-1s'[39m }
+     [90m 97 |[39m          
+   )[33m;[39m[0m
+
+      at Object.<anonymous>.mo
+dule.exports [as sign] (node_m
+odules/jsonwebtoken/sign.js:21
+3:22)
+      at Object.sign (tests/mi
+ddleware.test.js:94:31)
+
+PASS ../tests/unit/gateway/rat
+eLimiter.test.js
+  rateLimiter middleware
+    ΓêÜ allows requests under 
+the limit (116 ms)
+    ΓêÜ returns 429 when 
+general limit is exceeded (78 
+ms)
+    ΓêÜ auth limiter blocks 
+after 5 failures from same IP 
+(64 ms)
+    ΓêÜ auth rate limit 429 
+response includes retryAfter 
+(56 ms)
+    ΓêÜ different IPs have 
+independent counters (57 ms)
+    ΓêÜ lockout log entry 
+does not contain plain-text 
+email (116 ms)
+    ΓêÜ 429 response body 
+never includes stack trace 
+(95 ms)
+
+Test Suites: 3 failed, 2 
+passed, 5 total
+Tests:       14 failed, 62 
+passed, 76 total
+Snapshots:   0 total
+Time:        3.272 s, 
+estimated 4 s
+Ran all test suites.
+Force exiting Jest: Have you 
+considered using 
+`--detectOpenHandles` to 
+detect async operations that 
+kept running after all tests 
+finished?

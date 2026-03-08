@@ -141,7 +141,7 @@ describe('authenticate middleware', () => {
   // ── Expired Token ────────────────────────────────────────────
 
   test('returns 401 when JWT is expired', () => {
-    const expiredToken = makeToken({}, { expiresIn: '-1s' });
+    const expiredToken = makeToken({}, { expiresIn: 0 });
     const { req, res, next } = buildMocks(expiredToken);
 
     authenticate(req, res, next);

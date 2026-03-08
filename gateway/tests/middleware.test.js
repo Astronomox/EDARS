@@ -18,6 +18,7 @@ function createMockReq(overrides = {}) {
         originalUrl: '/test',
         get: jest.fn((h) => overrides.headerValues?.[h] || ''),
         connection: { remoteAddress: '127.0.0.1' },
+        app: { get: jest.fn().mockImplementation((key) => key === 'trust proxy' ? false : undefined) },
         requestId: 'test-req-id',
         redis: {
             get: jest.fn().mockResolvedValue(null),
@@ -49,9 +50,9 @@ function createMockRes() {
 
 function generateTestToken(payload = {}, options = {}) {
     const defaults = {
-        id: 1, uuid: 'test-uuid', email: 'test@edars.internal',
+        userId: 1, email: 'test@edars.internal',
         role: 'admin', departmentId: 1, fullName: 'Test User',
-        tenantId: 1, tenantSlug: 'test-org', plan: 'enterprise',
+        tenantId: '12345678-1234-1234-1234-123456789012', slug: 'test-org', plan: 'enterprise',
         type: 'access',
     };
     return jwt.sign({ ...defaults, ...payload }, JWT_SECRET, {
@@ -74,7 +75,7 @@ describe('Auth Middleware', () => {
             await authenticate(req, res, next);
 
             expect(res.status).toHaveBeenCalledWith(401);
-            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'Authentication required' }));
+            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'AUTHENTICATION_REQUIRED', code: 'MISSING_TOKEN' }));
             expect(next).not.toHaveBeenCalled();
         });
 
@@ -92,7 +93,7 @@ describe('Auth Middleware', () => {
         test('rejects expired JWT', async () => {
             const token = jwt.sign(
                 { id: 1, type: 'access' }, JWT_SECRET,
-                { algorithm: 'HS256', expiresIn: '-1s' }
+                { algorithm: 'HS256', expiresIn: 0 }
             );
             const req = createMockReq({ headers: { authorization: `Bearer ${token}` } });
             const res = createMockRes();
@@ -101,7 +102,7 @@ describe('Auth Middleware', () => {
             await authenticate(req, res, next);
 
             expect(res.status).toHaveBeenCalledWith(401);
-            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.stringContaining('expired') }));
+            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'TOKEN_EXPIRED', code: 'TOKEN_EXPIRED_OR_INVALID' }));
         });
 
         test('rejects blacklisted token', async () => {
@@ -117,7 +118,7 @@ describe('Auth Middleware', () => {
             await authenticate(req, res, next);
 
             expect(res.status).toHaveBeenCalledWith(401);
-            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'Token has been revoked' }));
+            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'TOKEN_REVOKED', code: 'BLACKLISTED' }));
         });
 
         test('rejects refresh token used as access token', async () => {
@@ -129,12 +130,12 @@ describe('Auth Middleware', () => {
             await authenticate(req, res, next);
 
             expect(res.status).toHaveBeenCalledWith(401);
-            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.stringContaining('refresh') }));
+            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'INVALID_TOKEN', code: 'REFRESH_AS_ACCESS' }));
         });
 
         test('accepts valid token and attaches user with tenant fields', async () => {
             const token = generateTestToken({
-                tenantId: 42, tenantSlug: 'acme', plan: 'growth',
+                tenantId: '87654321-4321-4321-4321-210987654321', slug: 'acme', plan: 'growth', userId: 1
             });
             const req = createMockReq({ headers: { authorization: `Bearer ${token}` } });
             const res = createMockRes();
@@ -145,8 +146,8 @@ describe('Auth Middleware', () => {
             expect(next).toHaveBeenCalled();
             expect(req.user).toBeDefined();
             expect(req.user.id).toBe(1);
-            expect(req.user.tenantId).toBe(42);
-            expect(req.user.tenantSlug).toBe('acme');
+            expect(req.user.tenantId).toBe('87654321-4321-4321-4321-210987654321');
+            expect(req.user.slug).toBe('acme');
             expect(req.user.plan).toBe('growth');
         });
 
