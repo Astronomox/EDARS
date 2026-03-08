@@ -1,0 +1,49 @@
+# analytics/ruff.toml
+# Ruff — the fast Python linter (replaces flake8, isort, pyupgrade)
+# Docs: https://docs.astral.sh/ruff/
+
+# ── Files ─────────────────────────────────────────────────────
+include = ["*.py"]
+exclude = [
+    ".git",
+    "__pycache__",
+    ".venv",
+    "venv",
+    "migrations",
+]
+
+line-length = 100
+target-version = "py312"
+
+# ── Lint rules ────────────────────────────────────────────────
+[lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # Pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear (real bugs)
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade
+    "S",   # flake8-bandit (security)
+    "N",   # pep8-naming
+]
+
+ignore = [
+    "S101",   # assert statements (fine in tests)
+    "S105",   # hardcoded passwords (we mock in tests)
+    "B008",   # do not perform function calls in default arguments (FastAPI pattern)
+]
+
+# Per-file rule overrides
+[lint.per-file-ignores]
+"tests/**" = [
+    "S",      # Security rules too strict in tests
+    "B",      # Bugbear too strict in tests
+]
+
+# ── Formatter ─────────────────────────────────────────────────
+[format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"

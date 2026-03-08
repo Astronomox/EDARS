@@ -110,24 +110,33 @@ async function getSecureClient(dbPool, user) {
  *   }
  */
 async function getTenantClient(tenantId) {
+    const UUID_PATTERN =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
     if (!tenantId || typeof tenantId !== 'string') {
-        throw new Error('getTenantClient: valid tenantId string (UUID) required');
+        throw new Error(
+            'getTenantClient: tenantId must be a non-empty string'
+        );
     }
 
-    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!UUID_REGEX.test(tenantId)) {
-        throw new Error('getTenantClient: tenantId must be a valid UUID');
+    if (!UUID_PATTERN.test(tenantId)) {
+        throw new Error(
+            `getTenantClient: tenantId "${tenantId}" is not a valid UUID`
+        );
     }
 
-    const dbPool = getPool();
-    const client = await dbPool.connect();
+    const client = await getPool().connect(); // using getPool() to integrate with existing scope
 
     try {
+        // Activate RLS for this tenant — LOCAL means it clears after transaction
         await client.query('SELECT set_tenant_context($1)', [tenantId]);
         return client;
     } catch (err) {
+        // Release immediately if context setting fails
         client.release();
-        throw err;
+        throw new Error(
+            `getTenantClient: Failed to set tenant context for ${tenantId}: ${err.message}`
+        );
     }
 }
 

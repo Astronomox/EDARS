@@ -1,42 +1,78 @@
-# ═══════════════════════════════════════════════════════════════
-# Prometheus Configuration — EDARS Monitoring
-# ═══════════════════════════════════════════════════════════════
+# monitoring/prometheus.yml
+# Free self-hosted monitoring stack (Prometheus + Grafana)
+#
+# This config tells Prometheus where to scrape metrics from.
+# All services expose a /metrics endpoint in Prometheus format.
+#
+# Usage:
+#   This file is mounted into the Prometheus container by docker-compose.yml
+#   The full stack (Prometheus + Grafana) is free and open source.
+#   Grafana Cloud also offers a free tier: https://grafana.com/products/cloud/
 
 global:
-  scrape_interval: 15s
-  evaluation_interval: 15s
-  scrape_timeout: 10s
+  scrape_interval:     15s   # How often to scrape targets
+  evaluation_interval: 15s   # How often to evaluate alert rules
+  scrape_timeout:      10s
 
-rule_files:
-  - /etc/prometheus/alert_rules.yml
+  # Labels added to all time series scraped from this instance
+  external_labels:
+    environment: 'development'
+    service:     'edars'
 
+# ── Alerting ─────────────────────────────────────────────────
 alerting:
   alertmanagers:
     - static_configs:
-        - targets: ['alertmanager:9093']
+        - targets:
+          - alertmanager:9093
 
+# ── Alert rules ───────────────────────────────────────────────
+rule_files:
+  - "alerts/*.yml"
+
+# ── Scrape targets ────────────────────────────────────────────
 scrape_configs:
-  # ── Gateway Metrics ──
-  - job_name: 'edars-gateway'
-    scrape_interval: 10s
-    metrics_path: /metrics
+
+  # API Gateway (Node.js — prom-client)
+  - job_name: 'edars_gateway'
     static_configs:
       - targets: ['gateway:3000']
         labels:
           service: 'gateway'
-          environment: 'production'
+          language: 'node'
+    metrics_path: '/metrics'
+    scrape_interval: 10s
 
-  # ── Prometheus Self-Monitoring ──
+  # Analytics Engine (Python — prometheus-fastapi-instrumentator)
+  - job_name: 'edars_analytics'
+    static_configs:
+      - targets: ['analytics:8000']
+        labels:
+          service: 'analytics'
+          language: 'python'
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # PostgreSQL Exporter (free: prom/postgres-exporter)
+  # Adds DB metrics: connections, query times, locks, replication lag
+  # Image: prometheuscommunity/postgres-exporter
+  - job_name: 'edars_postgres'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+        labels:
+          service: 'database'
+    scrape_interval: 30s
+
+  # Redis Exporter (free: oliver006/redis_exporter)
+  # Adds Redis metrics: memory, commands/sec, connected clients
+  - job_name: 'edars_redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+        labels:
+          service: 'cache'
+    scrape_interval: 30s
+
+  # Prometheus itself
   - job_name: 'prometheus'
     static_configs:
       - targets: ['localhost:9090']
-
-  # ── Redis Metrics (if redis-exporter is added) ──
-  # - job_name: 'redis'
-  #   static_configs:
-  #     - targets: ['redis-exporter:9121']
-
-  # ── PostgreSQL Metrics (if postgres-exporter is added) ──
-  # - job_name: 'postgresql'
-  #   static_configs:
-  #     - targets: ['postgres-exporter:9187']

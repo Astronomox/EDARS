@@ -1,0 +1,129 @@
+# monitoring/alerts/edars-alerts.yml
+# Prometheus alert rules for EDARS
+# These fire when the system is in trouble — before your users notice.
+#
+# Configure Alertmanager to route these to Slack, email, or PagerDuty.
+# Free Slack webhooks: https://api.slack.com/messaging/webhooks
+
+groups:
+  - name: edars_availability
+    rules:
+
+      # ── Service down ──────────────────────────────────────
+      - alert: GatewayDown
+        expr: up{job="edars_gateway"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: gateway
+        annotations:
+          summary: "EDARS API Gateway is DOWN"
+          description: >
+            The API Gateway has been unreachable for more than 1 minute.
+            All API requests will be failing.
+
+      - alert: AnalyticsEngineDown
+        expr: up{job="edars_analytics"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: analytics
+        annotations:
+          summary: "EDARS Analytics Engine is DOWN"
+          description: >
+            The Analytics Engine has been unreachable for 2+ minutes.
+            All analytics queries will fail with 503.
+
+      # ── High error rate ────────────────────────────────────
+      - alert: HighErrorRate
+        expr: >
+          rate(http_requests_total{status=~"5.."}[5m])
+          /
+          rate(http_requests_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          service: gateway
+        annotations:
+          summary: "High 5xx error rate on Gateway"
+          description: >
+            More than 5% of requests are returning 5xx errors
+            over the last 5 minutes. Current rate: {{ $value | humanizePercentage }}
+
+      # ── Slow responses ─────────────────────────────────────
+      - alert: SlowResponses
+        expr: >
+          histogram_quantile(0.95,
+            rate(http_request_duration_seconds_bucket[5m])
+          ) > 1.0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "P95 response time exceeds 1 second"
+          description: >
+            95th percentile response time is {{ $value }}s.
+            SLA target is 500ms P95.
+
+  - name: edars_security
+    rules:
+
+      # ── Auth lockout spike (potential brute force) ────────
+      - alert: AuthLockoutSpike
+        expr: >
+          rate(auth_lockouts_total[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+          service: gateway
+        annotations:
+          summary: "Unusual auth lockout rate — possible brute force"
+          description: >
+            Auth lockouts are firing at {{ $value }}/s.
+            This may indicate a credential stuffing or brute force attack.
+            Check audit_log for source IPs.
+
+      # ── Rate limit spike ──────────────────────────────────
+      - alert: RateLimitSpike
+        expr: >
+          rate(rate_limit_hits_total[1m]) > 10
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Rate limiter firing unusually often"
+          description: >
+            The rate limiter has blocked {{ $value }} requests/sec.
+            May indicate an API abuse attempt or misconfigured client.
+
+  - name: edars_database
+    rules:
+
+      # ── DB connections near limit ─────────────────────────
+      - alert: PostgresConnectionsHigh
+        expr: >
+          pg_stat_database_numbackends{datname="edars"}
+          / pg_settings_max_connections > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          service: database
+        annotations:
+          summary: "PostgreSQL connection pool near capacity"
+          description: >
+            {{ $value | humanizePercentage }} of max connections are in use.
+            Consider adding pgBouncer if this persists.
+
+      # ── Redis memory high ─────────────────────────────────
+      - alert: RedisMemoryHigh
+        expr: >
+          redis_memory_used_bytes / redis_memory_max_bytes > 0.9
+        for: 10m
+        labels:
+          severity: warning
+          service: cache
+        annotations:
+          summary: "Redis memory usage above 90%"
+          description: >
+            Redis is using {{ $value | humanizePercentage }} of allocated memory.
+            May cause cache evictions affecting rate limiter accuracy.

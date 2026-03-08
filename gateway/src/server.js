@@ -24,11 +24,9 @@ const { auditLog } = require('./middleware/audit');
 const { sanitise } = require('./middleware/sanitise');
 const { requestTracer } = require('./middleware/tracer');
 const { circuitBreaker } = require('./middleware/circuitBreaker');
-const { ipWhitelist } = require('./middleware/ipWhitelist');
+const { metricsCollector, metricsEndpoint } = require('./middleware/metrics');
 const { createThreatIntel, honeypotHandler, getThreatSummary } = require('./middleware/threatIntel');
 const { createHmacVerifier } = require('./middleware/hmacVerify');
-const { metricsCollector, metricsEndpoint } = require('./middleware/metrics');
-const tenancy = require('./middleware/tenancy');
 
 // ─── Routes ───────────────────────────────────────────────────
 const authRoutes = require('./routes/auth');
@@ -38,7 +36,10 @@ const analyticsRoutes = require('./routes/analytics');
 const auditRoutes = require('./routes/audit');
 const healthRoutes = require('./routes/health');
 const exportRoutes = require('./routes/exports');
-const adminTenantRoutes = require('./routes/admin/tenants');
+
+const tenancy = require('./middleware/tenancy');
+const { ipWhitelist } = require('./middleware/ipWhitelist');
+const adminTenants = require('./routes/admin/tenants');
 
 // ─── Database Pool (expanded) ─────────────────────────────────
 const pool = new Pool({
@@ -205,8 +206,7 @@ app.use('/api/v1/audit', authenticate, tenancy, auditLog, auditRoutes);
 app.use('/api/v1/exports', authenticate, tenancy, auditLog, exportRoutes);
 
 // ─── Admin-Only Internal Routes ──────────────────────────────
-// Tenant management (suspend, delete, list)
-app.use('/api/v1/admin', authenticate, tenancy, adminTenantRoutes);
+app.use('/api/v1/admin', authenticate, ipWhitelist, adminTenants);
 
 app.post('/api/v1/admin/refresh-views', authenticate, ipWhitelist, async (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin only' });

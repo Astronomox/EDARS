@@ -1,15 +1,48 @@
+# Dependencies
 node_modules/
 __pycache__/
 *.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Environment
 .env
+.env.local
+.env.*.local
+
+# TLS Certificates
 *.pem
 *.key
 *.crt
 proxy/certs/
+
+# Docker volumes
 pg_data/
 redis_data/
 prometheus_data/
+
+# Build / Coverage
 dist/
+coverage/
+htmlcov/
+*.lcov
+.nyc_output/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
 .DS_Store
 Thumbs.db
+desktop.ini
+
+# Logs
 *.log
+logs/
+
+# Enterprise architecture docs (binary)
+*.docx

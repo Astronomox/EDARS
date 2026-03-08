@@ -1,288 +1,313 @@
-// ═══════════════════════════════════════════════════════════════
-// Admin Tenant Management Routes
-// ═══════════════════════════════════════════════════════════════
-// All routes require BOTH:
-//   1. JWT authentication (authenticate middleware at server level)
-//   2. Admin role
-//   3. IP whitelist (explicitly applied on each route)
-//
-// SECURITY: These routes can suspend, delete, or wipe tenant data.
-// They are the most sensitive endpoints in the system.
-// ═══════════════════════════════════════════════════════════════
 'use strict';
 
+/**
+ * gateway/src/routes/admin/tenants.js
+ *
+ * Admin-only tenant management endpoints.
+ * Handles tenant suspension, deletion scheduling, and GDPR erasure.
+ *
+ * Security requirements (enforced on EVERY route in this file):
+ *   1. authenticate middleware (JWT validation)
+ *   2. Admin role check
+ *   3. IP whitelist middleware
+ *
+ * These three layers mean that even if a JWT is stolen, the
+ * attacker cannot reach these endpoints from outside your VPN/office IP.
+ */
+
 const express = require('express');
+const { pool, getTenantClient } = require('../../utils/dbHelper');
 const logger = require('../../utils/logger');
-const { ipWhitelist } = require('../../middleware/ipWhitelist');
 
 const router = express.Router();
 
-/**
- * Reusable admin check. Returns 403 if not admin.
- */
+// ── Admin role guard ──────────────────────────────────────────
+// This middleware runs on every route in this file.
+// Importing ipWhitelist here because admin routes need BOTH.
+
 function requireAdmin(req, res, next) {
-    if (req.user.role !== 'admin') {
-        return res.status(403).json({
-            error: 'INSUFFICIENT_PERMISSIONS',
-            code: 'ADMIN_REQUIRED',
-            correlationId: req.requestId,
-        });
-    }
-    next();
+  if (!req.user || req.user.role !== 'admin') {
+    logger.warn({
+      event:         'ADMIN_ACCESS_DENIED',
+      userId:        req.user?.userId,
+      tenantId:      req.user?.tenantId,
+      role:          req.user?.role,
+      path:          req.path,
+      ip:            req.ip,
+      correlationId: req.correlationId,
+    });
+
+    return res.status(403).json({
+      error:         'FORBIDDEN',
+      code:          'ADMIN_ROLE_REQUIRED',
+      correlationId: req.correlationId,
+    });
+  }
+  next();
 }
 
-// Every route in this file requires admin + IP whitelist
-router.use(requireAdmin, ipWhitelist);
+router.use(requireAdmin);
 
+// ── GET /admin/tenants ────────────────────────────────────────
+/**
+ * List all tenants with status summary.
+ * Returns: id, name, slug, plan, is_active, user_count,
+ *          deletion_scheduled_at, created_at
+ */
+router.get('/', async (req, res) => {
+  const client = await pool.connect(); // superuser connection — no RLS for admin list
+  try {
+    const { rows } = await client.query(`
+      SELECT
+        t.id,
+        t.name,
+        t.slug,
+        t.plan,
+        t.is_active,
+        t.created_at,
+        t.suspended_at,
+        t.suspension_reason,
+        t.deletion_requested_at,
+        t.deletion_scheduled_at,
+        t.deleted_at,
+        t.max_users,
+        t.data_retention_days,
+        COUNT(u.id) FILTER (WHERE u.id IS NOT NULL) AS user_count
+      FROM tenants t
+      LEFT JOIN users u ON u.tenant_id = t.id
+        AND u.email NOT LIKE 'deleted-%@redacted.invalid'
+      GROUP BY t.id
+      ORDER BY t.created_at DESC
+    `);
 
-// ═══════════════════════════════════════════════════════════════
-// GET /api/v1/admin/tenants
-// Lists all tenants with plan, status, user count, deletion info
-// ═══════════════════════════════════════════════════════════════
-router.get('/tenants', async (req, res, next) => {
-    try {
-        const result = await req.db.query(`
-            SELECT
-                t.id,
-                t.name,
-                t.slug,
-                t.plan,
-                t.is_active,
-                t.max_users,
-                t.data_retention_days,
-                t.created_at,
-                t.suspended_at,
-                t.suspension_reason,
-                t.deletion_requested_at,
-                t.deletion_scheduled_at,
-                t.deleted_at,
-                COUNT(u.id) AS user_count
-            FROM tenants t
-            LEFT JOIN users u ON u.tenant_id = t.id AND u.is_active = TRUE
-            GROUP BY t.id
-            ORDER BY t.created_at DESC
-        `);
+    logger.info({
+      event:         'ADMIN_TENANTS_LISTED',
+      adminId:       req.user.userId,
+      count:         rows.length,
+      correlationId: req.correlationId,
+    });
 
-        res.json({
-            tenants: result.rows,
-            total: result.rowCount,
-            correlationId: req.requestId,
-        });
-    } catch (err) {
-        next(err);
-    }
+    return res.json({ tenants: rows, count: rows.length });
+  } catch (err) {
+    logger.error({
+      event:         'ADMIN_TENANTS_LIST_FAILED',
+      error:         err.message,
+      correlationId: req.correlationId,
+    });
+    return res.status(500).json({
+      error:         'INTERNAL_ERROR',
+      correlationId: req.correlationId,
+    });
+  } finally {
+    client.release();
+  }
 });
 
+// ── POST /admin/tenants/:id/suspend ───────────────────────────
+/**
+ * Suspend a tenant — disables all their logins immediately.
+ * Body: { reason: string }
+ */
+router.post('/:id/suspend', async (req, res) => {
+  const { id } = req.params;
+  const { reason } = req.body;
 
-// ═══════════════════════════════════════════════════════════════
-// POST /api/v1/admin/tenants/:id/suspend
-// Suspends a tenant. Body: { reason: string }
-// ═══════════════════════════════════════════════════════════════
-router.post('/tenants/:id/suspend', async (req, res, next) => {
-    try {
-        const { id } = req.params;
-        const { reason } = req.body;
+  if (!reason || typeof reason !== 'string' || reason.trim().length < 5) {
+    return res.status(422).json({
+      error:         'VALIDATION_ERROR',
+      code:          'SUSPENSION_REASON_REQUIRED',
+      message:       'Provide a suspension reason of at least 5 characters.',
+      correlationId: req.correlationId,
+    });
+  }
 
-        if (!reason || typeof reason !== 'string' || reason.trim().length === 0) {
-            return res.status(400).json({
-                error: 'VALIDATION_ERROR',
-                code: 'MISSING_REASON',
-                message: 'A suspension reason is required.',
-                correlationId: req.requestId,
-            });
-        }
+  const client = await pool.connect();
+  try {
+    // Update tenant
+    const { rows } = await client.query(
+      `UPDATE tenants
+       SET suspended_at = NOW(), suspension_reason = $1, is_active = false
+       WHERE id = $2 AND deleted_at IS NULL
+       RETURNING id, name, slug, suspended_at, suspension_reason`,
+      [reason.trim(), id]
+    );
 
-        // Update tenant
-        const result = await req.db.query(
-            `UPDATE tenants SET
-                suspended_at = NOW(),
-                suspension_reason = $1,
-                is_active = FALSE
-             WHERE id = $2
-             RETURNING *`,
-            [reason.trim(), id]
-        );
-
-        if (result.rows.length === 0) {
-            return res.status(404).json({
-                error: 'NOT_FOUND',
-                code: 'TENANT_NOT_FOUND',
-                correlationId: req.requestId,
-            });
-        }
-
-        // Audit
-        await req.db.query(
-            `INSERT INTO audit_log
-                (tenant_id, user_id, action, resource_type, resource_id,
-                 ip_address, user_agent, metadata)
-             VALUES ($1, $2, 'TENANT_SUSPENDED', 'tenants', $3, $4, $5, $6)`,
-            [
-                id, req.user.userId, id,
-                req.ip, req.get('User-Agent') || 'unknown',
-                JSON.stringify({
-                    reason: reason.trim(),
-                    suspendedBy: req.user.userId,
-                    timestamp: new Date().toISOString(),
-                }),
-            ]
-        );
-
-        logger.info('Tenant suspended', {
-            tenantId: id,
-            reason: reason.trim(),
-            suspendedBy: req.user.userId,
-            requestId: req.requestId,
-        });
-
-        res.json({
-            tenant: result.rows[0],
-            message: 'Tenant suspended successfully.',
-            correlationId: req.requestId,
-        });
-    } catch (err) {
-        next(err);
+    if (rows.length === 0) {
+      return res.status(404).json({
+        error:         'TENANT_NOT_FOUND',
+        correlationId: req.correlationId,
+      });
     }
+
+    // Write audit entry
+    await client.query(
+      `INSERT INTO audit_log
+         (tenant_id, user_id, action, resource, resource_id, ip, correlation_id, timestamp)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
+      [id, req.user.userId, 'TENANT_SUSPENDED', 'tenants', id, req.ip, req.correlationId]
+    );
+
+    logger.warn({
+      event:         'TENANT_SUSPENDED',
+      tenantId:      id,
+      reason:        reason.trim(),
+      adminId:       req.user.userId,
+      correlationId: req.correlationId,
+    });
+
+    return res.json({ tenant: rows[0], message: 'Tenant suspended.' });
+  } catch (err) {
+    logger.error({
+      event:         'TENANT_SUSPEND_FAILED',
+      tenantId:      id,
+      error:         err.message,
+      correlationId: req.correlationId,
+    });
+    return res.status(500).json({
+      error:         'INTERNAL_ERROR',
+      correlationId: req.correlationId,
+    });
+  } finally {
+    client.release();
+  }
 });
 
+// ── POST /admin/tenants/:id/request-deletion ──────────────────
+/**
+ * Schedule a tenant for GDPR deletion 30 days from now.
+ * This is the first step of the two-step erasure process.
+ */
+router.post('/:id/request-deletion', async (req, res) => {
+  const { id } = req.params;
+  const client = await pool.connect();
 
-// ═══════════════════════════════════════════════════════════════
-// POST /api/v1/admin/tenants/:id/request-deletion
-// Initiates the 30-day deletion hold period
-// ═══════════════════════════════════════════════════════════════
-router.post('/tenants/:id/request-deletion', async (req, res, next) => {
-    try {
-        const { id } = req.params;
+  try {
+    const { rows } = await client.query(
+      `SELECT request_tenant_deletion($1, $2)`,
+      [id, req.user.userId]
+    );
 
-        const result = await req.db.query(
-            'SELECT * FROM request_tenant_deletion($1)',
-            [id]
-        );
+    // Fetch the updated tenant to return the scheduled date
+    const { rows: tenants } = await client.query(
+      `SELECT id, name, deletion_requested_at, deletion_scheduled_at
+       FROM tenants WHERE id = $1`,
+      [id]
+    );
 
-        const tenant = result.rows[0];
+    const tenant = tenants[0];
 
-        logger.warn('Tenant deletion requested', {
-            tenantId: id,
-            scheduledFor: tenant.deletion_scheduled_at,
-            requestedBy: req.user.userId,
-            requestId: req.requestId,
-        });
+    logger.warn({
+      event:                  'TENANT_DELETION_REQUESTED',
+      tenantId:               id,
+      scheduledDeletionDate:  tenant?.deletion_scheduled_at,
+      adminId:                req.user.userId,
+      correlationId:          req.correlationId,
+    });
 
-        res.json({
-            tenant,
-            scheduledDeletionDate: tenant.deletion_scheduled_at,
-            message: 'Tenant deletion has been scheduled. '
-                + 'Data will be permanently wiped after the 30-day hold period. '
-                + 'This action can be cancelled by contacting support before the scheduled date.',
-            correlationId: req.requestId,
-        });
-    } catch (err) {
-        // Surface known exceptions from the stored procedure
-        if (err.message.includes('TENANT_NOT_FOUND')) {
-            return res.status(404).json({
-                error: 'NOT_FOUND',
-                code: 'TENANT_NOT_FOUND',
-                correlationId: req.requestId,
-            });
-        }
-        if (err.message.includes('TENANT_ALREADY_DELETED')) {
-            return res.status(409).json({
-                error: 'CONFLICT',
-                code: 'TENANT_ALREADY_DELETED',
-                correlationId: req.requestId,
-            });
-        }
-        if (err.message.includes('DELETION_ALREADY_REQUESTED')) {
-            return res.status(409).json({
-                error: 'CONFLICT',
-                code: 'DELETION_ALREADY_REQUESTED',
-                correlationId: req.requestId,
-            });
-        }
-        next(err);
+    return res.json({
+      message:               'Deletion scheduled. Data will be wiped after the hold period.',
+      scheduledDeletionDate: tenant?.deletion_scheduled_at,
+      tenantId:              id,
+    });
+  } catch (err) {
+    if (err.message.includes('DELETION_ALREADY_REQUESTED') ||
+        err.message.includes('TENANT_ALREADY_DELETED') ||
+        err.message.includes('TENANT_NOT_FOUND')) {
+      return res.status(409).json({
+        error:         err.message,
+        correlationId: req.correlationId,
+      });
     }
+
+    logger.error({
+      event:         'TENANT_DELETION_REQUEST_FAILED',
+      tenantId:      id,
+      error:         err.message,
+      correlationId: req.correlationId,
+    });
+    return res.status(500).json({
+      error:         'INTERNAL_ERROR',
+      correlationId: req.correlationId,
+    });
+  } finally {
+    client.release();
+  }
 });
 
+// ── POST /admin/tenants/:id/execute-deletion ──────────────────
+/**
+ * IRREVERSIBLE: Permanently anonymise all PII for a tenant.
+ * Can only run after the 30-day hold period has passed.
+ *
+ * Body MUST include: { confirm: true }
+ * This is a safety gate — prevents accidental execution.
+ */
+router.post('/:id/execute-deletion', async (req, res) => {
+  const { id } = req.params;
+  const { confirm } = req.body;
 
-// ═══════════════════════════════════════════════════════════════
-// POST /api/v1/admin/tenants/:id/execute-deletion
-// IRREVERSIBLE. Wipes all tenant data.
-// Body: { confirm: true } — safety gate
-// ═══════════════════════════════════════════════════════════════
-router.post('/tenants/:id/execute-deletion', async (req, res, next) => {
-    try {
-        const { id } = req.params;
-        const { confirm } = req.body;
+  // Hard safety gate
+  if (confirm !== true) {
+    return res.status(422).json({
+      error:   'CONFIRMATION_REQUIRED',
+      code:    'MUST_CONFIRM_DELETION',
+      message: 'This action is IRREVERSIBLE. '
+             + 'You must send { "confirm": true } in the request body.',
+      correlationId: req.correlationId,
+    });
+  }
 
-        // Safety gate — must explicitly confirm
-        if (confirm !== true) {
-            return res.status(422).json({
-                error: 'CONFIRMATION_REQUIRED',
-                code: 'MISSING_CONFIRM',
-                message: 'This action is IRREVERSIBLE. '
-                    + 'Set { "confirm": true } in the request body '
-                    + 'to proceed with permanent data deletion.',
-                correlationId: req.requestId,
-            });
-        }
+  const client = await pool.connect();
+  try {
+    const { rows } = await client.query(
+      `SELECT execute_tenant_deletion($1) AS result`,
+      [id]
+    );
 
-        const result = await req.db.query(
-            'SELECT * FROM execute_tenant_deletion($1)',
-            [id]
-        );
+    const result = rows[0]?.result;
 
-        const tenant = result.rows[0];
+    logger.warn({
+      event:         'TENANT_DATA_WIPED',
+      tenantId:      id,
+      result,
+      adminId:       req.user.userId,
+      correlationId: req.correlationId,
+    });
 
-        logger.warn('TENANT DATA WIPED — IRREVERSIBLE', {
-            tenantId: id,
-            tenantName: tenant.name,
-            executedBy: req.user.userId,
-            requestId: req.requestId,
-        });
+    return res.json({
+      message:  'Tenant data permanently wiped.',
+      detail:   result,
+      tenantId: id,
+    });
+  } catch (err) {
+    // Propagate known business logic errors as 409
+    const knownErrors = [
+      'TENANT_NOT_FOUND',
+      'TENANT_ALREADY_DELETED',
+      'DELETION_NOT_REQUESTED',
+      'DELETION_HOLD_ACTIVE',
+    ];
 
-        res.json({
-            message: 'Tenant data wiped. This action is irreversible.',
-            tenant: {
-                id: tenant.id,
-                slug: tenant.slug,
-                deleted_at: tenant.deleted_at,
-            },
-            correlationId: req.requestId,
-        });
-    } catch (err) {
-        if (err.message.includes('TENANT_NOT_FOUND')) {
-            return res.status(404).json({
-                error: 'NOT_FOUND',
-                code: 'TENANT_NOT_FOUND',
-                correlationId: req.requestId,
-            });
-        }
-        if (err.message.includes('DELETION_NOT_REQUESTED')) {
-            return res.status(422).json({
-                error: 'PRECONDITION_FAILED',
-                code: 'DELETION_NOT_REQUESTED',
-                message: 'Call /request-deletion first.',
-                correlationId: req.requestId,
-            });
-        }
-        if (err.message.includes('DELETION_HOLD_PERIOD')) {
-            return res.status(422).json({
-                error: 'PRECONDITION_FAILED',
-                code: 'HOLD_PERIOD_ACTIVE',
-                message: 'Cannot delete before the 30-day hold period expires.',
-                correlationId: req.requestId,
-            });
-        }
-        if (err.message.includes('TENANT_ALREADY_DELETED')) {
-            return res.status(409).json({
-                error: 'CONFLICT',
-                code: 'TENANT_ALREADY_DELETED',
-                correlationId: req.requestId,
-            });
-        }
-        next(err);
+    if (knownErrors.some((e) => err.message.includes(e))) {
+      return res.status(409).json({
+        error:         err.message,
+        correlationId: req.correlationId,
+      });
     }
-});
 
+    logger.error({
+      event:         'TENANT_DELETION_EXECUTE_FAILED',
+      tenantId:      id,
+      error:         err.message,
+      correlationId: req.correlationId,
+    });
+    return res.status(500).json({
+      error:         'INTERNAL_ERROR',
+      correlationId: req.correlationId,
+    });
+  } finally {
+    client.release();
+  }
+});
 
 module.exports = router;

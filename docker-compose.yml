@@ -232,7 +232,11 @@ services:
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./monitoring/alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
+      - ./monitoring/alerts:/etc/prometheus/alerts:ro
       - prometheus_data:/prometheus
+    depends_on:
+      alertmanager:
+        condition: service_healthy
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
